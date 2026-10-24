@@ -2,8 +2,8 @@
 
 Cooperative multi-agent reinforcement learning for autonomous driving on
 CARLA/SUMO. This file is the single entry point for coding agents and human
-contributors alike; `CLAUDE.md` is a one-line `@AGENTS.md` import so Claude
-Code reads the same content without a duplicate copy.
+contributors alike; there is no per-tool twin, so every tool reads the same
+content.
 
 **Maintainer overlay**: a `.agents/` directory exists only on the
 maintainer's source line. When present, read `.agents/index.md` before

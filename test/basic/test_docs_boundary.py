@@ -9,10 +9,9 @@
   ``opencda_marl.plugins``, so a package following such a pointer would
   register under a group nothing reads.
 - The public agent docs (``docs/agents/``) are built at their portal URLs
-  but kept out of the human nav (``not_in_nav``); ``AGENTS.md`` is the
-  canonical entry file and ``CLAUDE.md`` is exactly a one-line
-  ``@AGENTS.md`` import, so the rules exist once and cannot drift between
-  tools.
+  but kept out of the human nav (``not_in_nav``); ``AGENTS.md`` is
+  the only entry file, with no per-tool twin, so the rules exist once and
+  cannot drift between tools.
 - Every agent guide carries a ``Guide version X.Y — <milestone>`` line,
   the same X.Y across the set, and opens by saying when it is worth
   opening.
@@ -30,7 +29,6 @@ import yaml
 
 REPO = Path(__file__).resolve().parents[2]
 DOCS = REPO / "docs"
-ENTRY_FILES = ("CLAUDE.md", "AGENTS.md")
 
 _PATH_RE = re.compile(r"`([A-Za-z0-9_./-]+\.[A-Za-z0-9]+|[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]*)`")
 _FILE_SUFFIXES = (".py", ".md", ".yaml", ".yml", ".json", ".toml", ".html", ".cff", ".txt", ".sh")
@@ -136,13 +134,10 @@ def test_agent_guides_are_built_but_kept_out_of_the_nav():
         assert page not in nav, f"{page} is in the human nav; agent guides stay out of it"
 
 
-def test_agents_md_is_canonical_and_claude_md_imports_it():
-    for name in ENTRY_FILES:
-        assert (REPO / name).exists(), f"{name} must exist on every tree"
-    claude = (REPO / "CLAUDE.md").read_text(encoding="utf-8")
-    assert claude.strip() == "@AGENTS.md", (
-        "CLAUDE.md must be exactly the one-line @AGENTS.md import — "
-        "content belongs in AGENTS.md only")
+def test_agents_md_is_the_only_entry_file():
+    assert (REPO / "AGENTS.md").exists(), "AGENTS.md must exist on every tree"
+    assert not (REPO / "CLAUDE.md").exists(), (
+        "CLAUDE.md is retired — AGENTS.md is the one entry file, with no per-tool twin")
 
 
 #: Title, then ``Guide version X.Y — <milestone>``, then the "when to open" line.
