@@ -6,6 +6,7 @@ Visualization tools for localization
 # License: TDG-Attribution-NonCommercial-NoDistrib
 
 import numpy as np
+import os
 import matplotlib
 
 import matplotlib.pyplot as plt
@@ -132,10 +133,18 @@ class LocDebugHelper(object):
         if self.show_animation:
             # call backend setting here to solve the conflict between cv2 pyqt5
             # and pyplot qtagg
-            try:
-                matplotlib.use('TkAgg')
-            except ImportError:
-                pass
+            # <OpenCDA-MARL> matplotlib.use() is process-global: this line ran
+            # inside a per-step debug hook and switched the backend for the
+            # whole process. An explicit MPLBACKEND now wins (headless servers
+            # and the test session set Agg), and any switch failure is
+            # non-fatal instead of ImportError-only -- a box without Tk used to
+            # take the run down with a TclError.
+            if not os.environ.get('MPLBACKEND'):
+                try:
+                    matplotlib.use('TkAgg')
+                except Exception:
+                    pass
+            # </OpenCDA-MARL>
             xEst = np.array([filter_x, filter_y]).reshape(2, 1)
             zTrue = np.array([gt_x, gt_y]).reshape(2, 1)
             z = np.array([gnss_x, gnss_y]).reshape(2, 1)

@@ -1,0 +1,101 @@
+description: |-
+  Shared intersection scenario configuration for the legacy MARL family.
+
+scenario:
+  type: "intersection"
+
+  map:
+    town: "intersection_local_xodr"
+    xodr_path: "opencda_marl/assets/intersection/intersection.xodr"
+
+  spectator:
+    preset: "intersection_bird_eye"
+
+  simulation:
+    max_steps: 2400 # 2 minute = 20fps * 60s * 2
+    max_episodes: 500
+
+  traffic:
+    # Traffic mode: 'record', 'replay', or 'live'
+    mode: "replay"
+    replay_file: "recordings/traffic_200vph.json"
+    base_speed: 55.0 # km/h base speed for vehicles
+    active_junctions: [4]
+
+    # Vehicle Type Configuration
+    included_vehicle_types:
+      - "vehicle.audi.a2"
+      - "vehicle.bmw.grandtourer"
+      - "vehicle.citroen.c3"
+      - "vehicle.lincoln.mkz_2017"
+      - "vehicle.seat.leon"
+    excluded_vehicle_types:
+      - "walker"
+
+    planner:
+      distance: 5.0 # base spacing (m)
+      spawn_offset: 7 # multiples of safe_distance upstream
+      dest_offset: 7 # multiples of safe_distance downstream
+      spawn_z_lift: 0.3 # small lift to avoid ground collision
+      wp_step: 1.0 # stepping granularity along lanes (m)
+      allow_uturn: false
+      visualize:
+        entry_wp: false
+        exit_wp: false
+        spawn_wp: false
+        dest_wp: false
+        route_line: false
+        junction_center: false
+        bbox: false
+        extent_box: false
+        text: false
+        life_time: 10.0
+
+    flows:
+      - name: "north"
+        rate_vph: 300
+        lanes: [0, 1, 2]
+        start_step: 0
+        end_step: 2400
+        direction: "north"
+        speed_variation: 0.2
+        middle_peak:
+          intensity: 0.4
+          position: 0.5
+          width: 0.3
+
+      - name: "south"
+        rate_vph: 300
+        lanes: [0, 1, 2]
+        start_step: 0
+        end_step: 2400
+        direction: "south"
+        speed_variation: 0.15
+        middle_peak:
+          intensity: 0.3
+          position: 0.4
+          width: 0.4
+
+      - name: "east"
+        rate_vph: 300
+        lanes: [0, 1, 2]
+        start_step: 0
+        end_step: 2400
+        direction: "east"
+        speed_variation: 0.1
+        middle_peak:
+          intensity: 0.35
+          position: 0.6
+          width: 0.25
+
+      - name: "west"
+        rate_vph: 300
+        lanes: [0, 1, 2]
+        start_step: 0
+        end_step: 2400
+        direction: "west"
+        speed_variation: 0.25
+        middle_peak:
+          intensity: 0.5
+          position: 0.45
+          width: 0.35

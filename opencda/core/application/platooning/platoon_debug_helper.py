@@ -26,8 +26,12 @@ class PlatoonDebugHelper(PlanDebugHelper):
         The list containing distance gap(s) of all time-steps.
     """
 
-    def __init__(self, actor_id):
-        super(PlatoonDebugHelper, self).__init__(actor_id)
+    # <OpenCDA-MARL> pass the world through to the patched PlanDebugHelper
+    # (its route-trace hook takes an optional world); the upstream arity
+    # raised at construction once the base gained the parameter.
+    def __init__(self, actor_id, world=None):
+        super(PlatoonDebugHelper, self).__init__(actor_id, world)
+    # </OpenCDA-MARL>
 
         self.time_gap_list = [[]]
         self.dist_gap_list = [[]]

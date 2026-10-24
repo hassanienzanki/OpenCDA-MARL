@@ -1,86 +1,88 @@
 # OpenCDA-MARL
 
-Welcome to OpenCDA-MARL, an advanced framework that integrates Multi-Agent Reinforcement Learning (MARL) capabilities with the OpenCDA autonomous driving simulation platform.
+Cooperative multi-agent reinforcement learning for autonomous driving,
+built on [OpenCDA](https://github.com/ucla-mobility/OpenCDA): the same
+signal-free intersection scenarios run on CARLA (full vehicle stack) or on
+SUMO (traffic only, orders of magnitude faster), and any learner that
+implements one small contract trains inside the framework's episode loop
+with checkpoints, metrics and the experiment matrix included.
 
-## 🎯 Overview
+![the monitor's live traffic view during a SUMO training run](images/monitor-traffic-view.gif)
 
-This project extends the OpenCDA framework to support MARL algorithms for cooperative autonomous driving scenarios. It enables researchers to:
+*The web monitor's traffic view: a signal-free intersection during a live
+SUMO run, learning agents in blue — headless, no CARLA rendering.*
 
-- Train cooperative autonomous vehicles using state-of-the-art MARL algorithms
-- Evaluate multi-agent policies in realistic driving scenarios
-- Develop and test coordination strategies for autonomous vehicle fleets
+## Four pages
 
-![simulation](images/MARL-rule-based-simulation.gif)
+<div class="grid cards" markdown>
 
-## 🚀 Quick Start
+-   **[Quick Start](quick-start.md)**
 
-```bash
-# Clone and setup
-git clone https://github.com/radar-lab/opencda-marl.git
-cd opencda-marl
+    Run a bundled learner untouched — SUMO, headless, monitor included —
+    then change one thing.
 
-# Install dependencies with pixi
-pixi install
+-   **[Architecture](marl/architecture.md)**
 
-# Run a quick test
-pixi run marl-quick-test
-```
+    One sealed lifecycle, many replaceable joints: the map of every plugin
+    kind, port and config seam an experiment can swap or vary.
 
-Refer to [Quick Start](quick-start.md) for more details.
+-   **[Run Experiments](run-experiments.md)**
 
-## 📚 Key Features
+    One run, the monitor, the experiment matrix: the launcher with parallel
+    runs on a multi-GPU box, resume, evaluation and analysis.
 
-#### MARL Integration
+-   **[Customize](marl/custom_algorithms.md)**
 
-- **Multi-Agent Training**: Support for various MARL algorithms (MAPPO, MADDPG, etc.)
-- **Cooperative Scenarios**: Platooning, intersection coordination, lane merging
-- **Scalable Architecture**: Handle large numbers of cooperative agents
+    Plug in a learner ([Add an Algorithm](marl/custom_algorithms.md)),
+    swap a lifecycle joint ([Replace a
+    Component](marl/replace_component.md)), or drive the scenarios from
+    your own RL stack through the PettingZoo port.
 
-#### Research-Friendly
+</div>
 
-- **Modular Design**: Easy to extend and customize for research needs
-- **Experiment Tracking**: Built-in logging and evaluation metrics
-- **Visualization**: Real-time monitoring and post-hoc analysis tools
+Install first: [Installation](installation.md) and
+[CARLA Version Support](carla-version-support.md). Developing the
+framework itself — as a person or a coding agent — starts at
+[`AGENTS.md`](https://github.com/radar-lab/OpenCDA-MARL/blob/main/AGENTS.md)
+([Contributing](contributing.md) is the short form).
 
-#### OpenCDA Foundation
+## What ships
 
-- **Realistic Simulation**: Built on CARLA simulator with realistic physics
-- **Comprehensive Modules**: Perception, planning, control, and communication
-- **Scenario Testing**: Extensive testing framework for autonomous driving scenarios
+- **Learners**: MAPPO, MASAC, MATD3, DQN and tabular Q-learning; PCMAPPO and
+  PCMASAC build on [PCMA](marl/pcma.md) (without its preference planner) for
+  multi-objective training, and
+  PCMATD3 is preference-conditioned only — all registered through the same
+  interface an external package uses.
+- **Baselines**: the framework paper's DQN, MAPPO and SAC checkpoints and
+  most of its TD3 ones (all but the two 1024-wide TD3-44d runs, which
+  retrain from the `td3_44d` profile) ship in the wheel with their
+  profiles and the deterministic recordings they were trained against — a
+  fixed reference point for comparison.
+- **Backends**: CARLA 0.9.15 / 0.9.16 (0.10.0 experimental), SUMO via
+  libsumo, CARLA–SUMO co-simulation.
+- **Infrastructure**: one verified lifecycle across backends with CARLA world
+  reloads that carry the full learner state; resumable runs; a SQLite
+  metrics store with a live web monitor and schematic traffic view; the
+  experiment matrix launcher with per-slot CARLA servers and GPU spreading.
 
-For comprehensive OpenCDA documentation, refer to [OpenCDA Documentation](https://opencda-documentation.readthedocs.io/en/latest/). The original documentation covers:
+## Citation
 
-- Complete installation instructions
-- Core system architecture and design
-- Scenario configuration and testing
-- Full API references for all OpenCDA modules
-- Advanced tutorials and customization guides
+If you use OpenCDA-MARL, please cite the framework paper (and OpenCDA); the
+BibTeX is in the repository
+[README](https://github.com/radar-lab/OpenCDA-MARL#citation). The
+preference-conditioned learners build on
+[arXiv:2606.14693](https://arxiv.org/abs/2606.14693) (without its preference
+planner) — cite it with them
+([PCMA Learners](marl/pcma.md#citation)).
 
-## 🏗️ Architecture
+## Acknowledgments
 
-![Architecture](images/OpenCDA_MARL_architecture.png)
-
-## 📖 Documentation
-
-**MARL-Specific Documentation**: Refer to [MARL Overview](api/opencda-marl/overview.md) for more details.
-
-1. **[Installation](installation.md)** - Set up your development environment
-2. **[Quick Start](quick-start.md)** - Run your first MARL experiment
-3. **[MARL Framework](marl/architecture.md)** - Understand the MARL integration
-4. **[API Reference](api/opencda-marl/overview.md)** - Detailed API documentation
-
-## 🤝 Contributing
-
-This project is currently under active development. Please see our [Contributing Guide](contributing.md) for information on how to contribute.
-
-## 📄 License
-
-This project is licensed under the same terms as OpenCDA. See [LICENSE](LICENSE) for details.
-
-## 🙏 Acknowledgments
-
-- Supported by the [Radar Lab](https://github.com/radar-lab) at University of Arizona.
-- Built upon the excellent [OpenCDA](https://github.com/ucla-mobility/OpenCDA) framework by UCLA Mobility Lab.
-- Carla simulator provided by [CARLA](https://carla.org/).
-- SUMO simulator provided by [SUMO](https://eclipse.dev/sumo/).
-- [Pixi](https://github.com/pixi-tools/pixi) is a powerful tool for managing Python dependencies.
+- Developed at the [Radar Lab](https://github.com/radar-lab), University of
+  Arizona ([About](about.md)).
+- Built on [OpenCDA](https://github.com/ucla-mobility/OpenCDA) by the UCLA
+  Mobility Lab, [CARLA](https://carla.org/), [SUMO](https://eclipse.dev/sumo/)
+  and [Pixi](https://github.com/prefix-dev/pixi).
+- The OpenCDA-MARL code is licensed under the
+  [Apache License 2.0](https://github.com/radar-lab/OpenCDA-MARL/blob/main/LICENSE); the vendored OpenCDA core
+  keeps UCLA's academic, non-commercial licence, and other third-party material keeps its own terms — see
+  [THIRD_PARTY_NOTICES.md](https://github.com/radar-lab/OpenCDA-MARL/blob/main/THIRD_PARTY_NOTICES.md).

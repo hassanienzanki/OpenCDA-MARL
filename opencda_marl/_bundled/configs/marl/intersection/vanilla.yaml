@@ -1,0 +1,87 @@
+description: |-
+  Vanilla agent baseline for intersection scenario.
+  Traditional agent - no training required.
+
+agents:
+  agent_type: "vanilla"
+
+  # Master debug flag - gates agent_manager.visualize_route()
+  debug: false
+
+  vanilla:
+    debug:
+      global_planner:
+        localize: false
+        lane_change_links: false
+        graph:
+          enabled: false
+          junction_only: false
+          route_only: false
+          node_labels: false
+          edge_labels: false
+        path:
+          enabled: false
+          hop_labels: false
+          start_end_labels: false
+    destination_reach_threshold: 3.0
+    max_speed: 45                 # km/h
+    emergency_param: 0.4
+    ignore_traffic_light: true
+    collision_time_ahead: 1.5
+
+    local_planner:
+      debug: false                # color-coded route waypoints in set_global_plan
+      debug_trajectory: false     # live trajectory preview (blue buffer + heading arrow)
+
+# ---------------------------------------------------------------------------
+# Debug visualization reference (all flags, enable as needed)
+# ---------------------------------------------------------------------------
+# scenario.traffic.planner.visualize:
+#   entry_wp / exit_wp / spawn_wp / dest_wp  - junction waypoints
+#   route_line / junction_center / bbox / extent_box / text
+#   life_time: 10.0
+#
+# scenario.traffic.event_visualization:
+#   enabled: false
+#   spawn_point / destination_point / route_line / text
+#   max_events: 12
+#   life_time: 120.0
+#
+# agents.debug: true  - traced planner-route arrows from agent_manager
+#
+# agents.vanilla.debug.global_planner:
+#   localize: true            - localized start/end waypoint labels
+#   lane_change_links: true   - lane-change graph links
+#   graph:
+#     enabled: true
+#     junction_only: true     - restrict graph overlay to intersection edges
+#     route_only: true        - show only graph edges used by the traced route
+#     node_labels: true       - draw node ids
+#     edge_labels: true       - draw edge labels and road options
+#   path:
+#     enabled: true
+#     hop_labels: true        - draw route hop index and node pair
+#     start_end_labels: true  - label route start/end nodes
+#
+# agents.vanilla.local_planner.debug: true  - color-coded waypoint dots
+# agents.vanilla.local_planner.route_debug_life_time: 8.0
+# agents.vanilla.local_planner.route_debug_point_size: 0.05
+# agents.vanilla.local_planner.debug_trajectory: true  - live blue buffer
+# agents.vanilla.local_planner.trajectory_point_size: 0.05
+# agents.vanilla.local_planner.trajectory_arrow_size: 0.2
+# agents.vanilla.local_planner.trajectory_arrow_thickness: 0.08
+# ---------------------------------------------------------------------------
+
+scenario:
+  simulation:
+    max_episodes: 1 # a baseline runs one episode unless the profile asks for more
+
+outputs:
+  evaluation:
+    mode: "disabled"
+  tensorboard:
+    enabled: false
+
+runtime:
+  reset:
+    enabled: false

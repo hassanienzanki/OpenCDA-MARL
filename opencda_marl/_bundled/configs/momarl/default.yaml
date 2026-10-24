@@ -1,0 +1,166 @@
+description: |-
+  MOMARL experiment default configuration.
+  This family is intentionally split away from configs/marl so vector-reward and
+  preference-oriented experiments can evolve without destabilizing the legacy MARL setups.
+  Agent-specific configurations inherit from this file via OmegaConf merge.
+
+# Base OpenCDA world configuration
+world:
+  sync_mode: true
+  host: 127.0.0.1
+  client_port: 2000
+  timeout: 20.0
+  fixed_delta_seconds: 0.05 # 20 FPS
+  seed: 11 # seed for numpy and random
+  weather:
+    sun_altitude_angle: 15 # 90 is the midday and -90 is the midnight
+    cloudiness: 0 # 0 is the clean sky and 100 is the thickest cloud
+    precipitation: 0 # rain, 100 is the heaviest rain
+    precipitation_deposits: 0 # Determines the creation of puddles. Values range from 0 to 100
+    wind_intensity: 0 # it will influence the rain
+    fog_density: 0 # fog thickness, 100 is the largest
+    fog_distance: 0 # Fog start distance. Values range from 0 to infinite.
+    fog_falloff: 0 # Density of the fog from 0 to infinity
+    wetness: 0
+
+runtime:
+  backend: "carla"
+  reset:
+    enabled: true
+    reset_frequency: 10
+    auto_reset:
+      enabled: true
+
+# Base vehicle configuration (sensing, localization - shared by all agents)
+agents:
+  debug: false
+  route_visualization:
+    arrow_step: 3
+    arrow_thickness: 0.18
+    arrow_size: 0.45
+    life_time: 10.0
+    z_offset: 0.9
+    point_size: 0.16
+
+  vehicle:
+    sensing:
+      perception:
+        activate: false
+        camera:
+          visualize: 0
+          num: 1
+          positions: [[2.5, 0, 1.0, 0]]
+        lidar:
+          visualize: false
+
+      localization:
+        activate: false  # Ground truth — GNSS has warmup/drift issues incompatible with RL
+        use_kalman: false
+        dt: ${world.fixed_delta_seconds}
+        debug_helper:
+          show_animation: false
+
+    map_manager:
+      visualize: false
+      activate: false
+
+    v2x:
+      # V2X only feeds platooning (cav_nearby search/match), which MARL
+      # scenarios do not use; the search is O(N^2) noisy-position Python
+      # per tick, a real cost on a CARLA step. Keep it off unless a
+      # scenario actually platoons.
+      enabled: false
+      apply_lag: false
+
+    safety_manager:
+      print_message: false
+
+    behavior:
+      debug: false
+      destination_reach_threshold: 10.0
+      max_speed: 45
+      tailgate_speed: 50
+      speed_lim_dist: 5
+      speed_decrease: 15
+      safety_time: 4
+      emergency_param: 0.4
+      overtake_allowed: true
+      collision_time_ahead: 1.5
+      overtake_counter_recover: 35
+      ignore_traffic_light: false
+      sample_resolution: 1.0
+
+      local_planner:
+        buffer_size: 12
+        trajectory_update_freq: 15
+        trajectory_point_size: 0.05
+        trajectory_arrow_size: 0.2
+        trajectory_arrow_thickness: 0.08
+        route_debug_life_time: 8.0
+        route_debug_point_size: 0.05
+        waypoint_update_freq: 9
+        min_dist: 2
+        trajectory_dt: 0.10
+        lookahead_steps: 3
+        debug: true
+        debug_trajectory: true
+
+    controller:
+      type: pid_controller
+      args:
+        lat:
+          k_p: 1.95
+          k_d: 0.2
+          k_i: 0.05
+        lon:
+          k_p: 0.37
+          k_d: 0.024
+          k_i: 0.032
+        dynamic: false
+        dt: ${world.fixed_delta_seconds}
+        max_brake: 1.0
+        max_throttle: 1.0
+        max_steering: 0.8
+
+outputs:
+  root_dir: "artifacts"
+  evaluation:
+    mode: "summary"
+    dir: "evaluation"
+    keep_episode_summaries: 1000
+    plot_interval: 5
+    max_history_steps: 10000
+  tensorboard:
+    enabled: true
+    dir: "runs"
+    mode: "episode_first"
+    log_frequency: 100
+    max_episodes_per_run: 100
+    keep_last_runs: 5
+  metrics_archive:
+    enabled: true
+    dir: "metrics_history"
+    export_interval: 5
+  trace:
+    enabled: false
+    dir: "traces"
+    sample_every: 1
+    include_routes: true
+
+# MARL training base configuration
+MARL:
+  training: {}
+
+carla_physics_guard:
+  enabled: true
+  policy: "remove_actor"
+  warn_vertical_speed_kmh: 12.0
+  max_vertical_speed_kmh: 25.0
+  warn_speed_3d_gap_kmh: 15.0
+  max_speed_3d_gap_kmh: 30.0
+  warn_pitch_deg: 10.0
+  max_pitch_deg: 20.0
+  warn_roll_deg: 10.0
+  max_roll_deg: 20.0
+  warn_height_delta_m: 0.75
+  max_height_delta_m: 1.5

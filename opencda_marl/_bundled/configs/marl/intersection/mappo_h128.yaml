@@ -1,0 +1,71 @@
+# Kit profile generated from the v1.0.0 (RAL) configuration at commit 2d6f8d2c:
+# today's `mappo` profile with the v1 `mappo` network hyper-parameters.
+description: MAPPO with 128-wide actor/critic and LSTM (the RAL-era mappo_065 baseline).
+  Pairs with the bundled RAL checkpoint(s) in opencda_marl/_bundled/checkpoints/ral/
+  - see manifest.json.
+_extend_fields:
+- world.seed
+world:
+  seed: 5
+agents:
+  agent_type: marl
+  marl:
+    debug: false
+    max_speed: 65
+    emergency_param: 0.4
+    ignore_traffic_light: true
+    collision_time_ahead: 1.5
+    local_planner:
+      trajectory_update_freq: 5
+      debug: false
+      debug_trajectory: true
+MARL:
+  algorithm: mappo
+  action_space:
+    mode: speed_only
+  reward_profile: simple_progress_v1
+  state_dim: 8
+  action_dim: 1
+  mappo:
+    features:
+      rel_x: 1
+      rel_y: 1
+      speed: 1
+      heading_angle: 1
+      dist_to_intersection: 1
+      dist_to_front_vehicle: 1
+      lane_position: 1
+      waypoint_buffer: 1
+    actor_hidden_dims:
+    - 128
+    - 128
+    critic_hidden_dims:
+    - 128
+    - 128
+    lstm_hidden_size: 128
+    lstm_num_layers: 1
+    init_std: 0.3
+    clip_param: 0.1
+    ppo_epochs: 5
+    num_mini_batch: 4
+    entropy_coef: 0.05
+    value_loss_coef: 0.5
+    max_grad_norm: 0.5
+    gamma: 0.99
+    gae_lambda: 0.95
+    use_gae: true
+    learning_rate: 0.0003
+    use_lr_decay: false
+    n_steps: 128
+    batch_size: 32
+    warmup_steps: 2000
+    max_action: 65.0
+    min_action: 10.0
+    use_centralized_V: true
+    share_policy: true
+  training:
+    training_mode: false
+    checkpoint_dir: checkpoints/
+    save_freq: 10
+    keep_checkpoints: 3
+    load_checkpoint: ral/mappo_065_300vph  # bundled RAL baseline (checkpoints/ral/manifest.json)

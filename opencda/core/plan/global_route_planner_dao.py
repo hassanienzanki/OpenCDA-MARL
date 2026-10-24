@@ -7,7 +7,6 @@ Description  : This module provides implementation for GlobalRoutePlannerDAO
 This work is licensed under the terms of the MIT license.
 For a copy, see <https://opensource.org/licenses/MIT>.
 
-Copyright (c) 2025 by AXIBA (leolihao@arizona.edu), All Rights Reserved.
 Copyright (c) 2018-2020 CVC.
 '''
 import numpy as np

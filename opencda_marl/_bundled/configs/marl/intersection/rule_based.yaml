@@ -1,0 +1,80 @@
+description: |-
+  Rule-based 3-stage agent for intersection scenario.
+  Traditional agent with JAIR enhancements - no training required.
+
+agents:
+  agent_type: "rule_based"
+
+  rule_based:
+    debug: false
+    # ---------------------------------------------------------------------------
+    # Rule-based debug reference
+    # ---------------------------------------------------------------------------
+    # debug: false
+    #   Master off-switch for inherited planner/local-planner debug and rule logs.
+    #
+    # debug.rules: true
+    #   Enables rule-based decision logs only:
+    #   stage selection, TTC/conflict checks, following decisions, and junction priority.
+    #
+    # Route/global-planner/local-planner visuals are inherited from the shared
+    # agent debug surfaces and are intentionally not repeated here.
+    # ---------------------------------------------------------------------------
+    max_speed: 65 # km/h    
+    emergency_param: 0.4
+    ignore_traffic_light: true
+    collision_time_ahead: 1.5
+    destination_reach_threshold: 3.0
+
+    local_planner:
+      trajectory_update_freq: 5
+      debug: false
+      debug_trajectory: true
+
+    # Stage 1: Junction Management
+    junction_approach_distance: 70.0 # meters
+    junction_conflict_distance: 50.0 # meters
+    junction_speed_factor: 0.6
+    junction_min_reduction: 30.0 # km/h
+    junction_stop_on_conflict: true # yield by stopping before the entry, not by slowing to 60 %
+    junction_stop_buffer: 2.0 # metres before the entry
+    junction_stop_decel: 1.5 # m/s^2, the braking curve to the stop line
+    abreast_guard: true # the vehicle behind in a closing side-by-side pair drops back
+    abreast_lateral_m: 3.2 # soft zone: binds only on a closing, moving neighbour (lanes are ~3.5 m apart)
+    abreast_hard_m: 2.6 # hard zone: always binds
+    abreast_closing_m: 0.015 # lateral shrink per step that counts as closing (~0.3 m/s)
+    abreast_creep_kmh: 5.0 # a stationary pair in the hard zone creeps apart at this speed instead of locking
+    abreast_longitudinal_m: 6.0 # |longitudinal offset| below this counts as alongside
+    abreast_drop_kmh: 8.0 # the yielder goes this much slower than the neighbour
+    lane_hold: true # keep the current lane, and drop back, while the planner's next lane is occupied alongside
+    lane_hold_geometry_priority: true # standing merge order: true = the vehicle ahead goes first (ids break half-metre ties); false = lower actor id first, which can hold a merging vehicle and the standing vehicle behind it in place
+
+    # Trajectory-based conflict detection
+    trajectory_lookahead_time: 8.0 # seconds
+    ttc_threshold: 5.0 # seconds
+    trajectory_step_size: 3.0 # meters
+
+    # Stage 2: Car Following
+    time_headway: 3.0 # seconds
+    following_gain: 0.5 # km/h per metre inside the safe distance
+    closing_decel: 1.0 # m/s^2, the braking curve a follower closes a gap on
+    minimum_distance_buffer: 3.0 # meters, bumper to bumper (the follower stops here behind a stopped leader)
+    same_lane_tolerance_deg: 30
+    front_cone_angle_deg: 45
+
+    # Stage 3: Cruising
+    cruising_speed_factor: 1.0
+
+scenario:
+  simulation:
+    max_episodes: 1 # a baseline runs one episode unless the profile asks for more
+
+outputs:
+  evaluation:
+    mode: "disabled"
+  tensorboard:
+    enabled: false
+
+runtime:
+  reset:
+    enabled: false

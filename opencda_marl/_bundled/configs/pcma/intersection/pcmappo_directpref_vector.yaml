@@ -1,0 +1,120 @@
+description: |-
+  CARLA cooperative PPO using preference-conditioned MAPPO with direct
+  preference conditioning and vector critic supervision; 50 episodes on
+  one seed.
+
+world:
+  seed: 3
+
+agents:
+  agent_type: "marl"
+
+  marl:
+    debug: false
+    max_speed: 45
+    emergency_param: 0.4
+    ignore_traffic_light: true
+    collision_time_ahead: 1.5
+
+    local_planner:
+      trajectory_update_freq: 5
+      lookahead_steps: 3
+      debug: false
+      debug_trajectory: false
+
+scenario:
+  simulation:
+    max_steps: 2400
+    max_episodes: 50
+  traffic:
+    mode: "live"
+    max_active_agents: 10
+
+outputs:
+  evaluation:
+    mode: "disabled"
+  tensorboard:
+    enabled: true
+    mode: "episode_first"
+    log_frequency: 100
+    max_episodes_per_run: 100
+    keep_last_runs: 0
+  metrics_archive:
+    enabled: true
+    export_interval: 1
+    dir: "metrics_history/pcma_intersection_pcmappo_directpref_vector"
+
+runtime:
+  reset:
+    enabled: true
+    reset_frequency: 1
+    auto_reset:
+      enabled: true
+
+MARL:
+  algorithm: "pcmappo"
+  reward_profile: "cooperative_intersection_v1"
+  objective_mode: "cooperative_pref_v1"
+  reward_mode: "objective_vector"
+  state_dim: 11
+  action_dim: 1
+  action_space:
+    mode: speed_only
+
+  preference:
+    profile: "mild_asymmetric_split"
+    assignment: "entry_direction"
+    injection: "state_augmentation"
+    dim: 2
+
+  pcmappo:
+    pref_mode: "direct"
+    critic_mode: "vector"
+    reward_dim: 2
+    critic_vector_l2_coef: 1.0
+    pref_dim: 2
+    actor_pref_conditioning: "pref_encoder_fusion"
+    critic_pref_conditioning: "concat"
+    actor_use_pref_shift_head: false
+    reward_aggregation: "team_mean"
+    features:
+      rel_x: 1
+      rel_y: 1
+      position_x: 1
+      position_y: 1
+      lane_position: 1
+      heading_angle: 1
+      dist_to_intersection: 1
+      dist_to_front_vehicle: 1
+      waypoint_buffer: 1
+
+    actor_hidden_dims: [256, 256]
+    critic_hidden_dims: [256, 256]
+    lstm_hidden_size: 128
+    lstm_num_layers: 1
+    init_std: 0.3
+    clip_param: 0.1
+    ppo_epochs: 5
+    num_mini_batch: 4
+    entropy_coef: 0.05
+    value_loss_coef: 0.5
+    max_grad_norm: 0.5
+    gamma: 0.99
+    gae_lambda: 0.95
+    use_gae: true
+    learning_rate: 3e-4
+    use_lr_decay: false
+    n_steps: 128
+    batch_size: 32
+    warmup_steps: 100
+    max_action: 45.0
+    min_action: 0.0
+    share_policy: true
+
+  training:
+    training_mode: true
+    save_checkpoints: true
+    checkpoint_dir: "artifacts/checkpoints/pcma_intersection_pcmappo_directpref_vector"
+    save_freq: 1
+    keep_checkpoints: 1
+    load_checkpoint: ""

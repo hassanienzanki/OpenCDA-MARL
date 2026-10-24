@@ -1,46 +1,46 @@
-# Contributing to OpenCDA-MARL
+# Contributing
 
-Thank you for considering contributing to OpenCDA-MARL! We welcome contributions from the community to make our project better. Before you get started, please take a moment to read the following guidelines.
+Contributions — by people and by coding agents — are welcome. The process
+is the one in [Agent Workflow](agents/workflow.md); this page is the short
+form.
 
-**Please do not directly create a branch from the original repo.** Please fork the OpenCDA-MARL repository to your local github repo instead
+Development here is specified **agent-first**: the canonical guide is
+[`AGENTS.md`](https://github.com/radar-lab/OpenCDA-MARL/blob/main/AGENTS.md)
+at the repository root, routing to the same
+[Agent Workflow](agents/workflow.md), [Code Index](agents/code-index.md)
+and [Conventions](agents/conventions.md) this site hosts. Point a coding
+agent at a checkout and it reads exactly the rules a human contributor
+does — one rule set, no drift.
 
-Forking the repository helps keep the main project tidy. It allows you to make changes in your forked repository without cluttering the original repository.
-Please make changes in your local repo and when the codes are ready to merge with the main branch, please create a pull request to the official OpenCDA-MARL repo. Project maintainers will review your changes, suggest modifications if needed, and discuss any concerns.
+Contributions are accepted under the Apache License 2.0 that covers the
+OpenCDA-MARL code (see
+[`LICENSE`](https://github.com/radar-lab/OpenCDA-MARL/blob/main/LICENSE)).
+Files from third parties keep their own terms; see
+[`THIRD_PARTY_NOTICES.md`](https://github.com/radar-lab/OpenCDA-MARL/blob/main/THIRD_PARTY_NOTICES.md).
 
-## **Fork the Repository**
+1. **Fork** `radar-lab/OpenCDA-MARL` and branch from `main`
+   (`git switch -c feat/short-summary`).
+2. **Make one verified change.** Tests ship with the change; `pixi run
+   pytest test -q` is green; lifecycle, launcher and monitor changes get
+   a live smoke run. Docs are updated on the page that owns the feature.
+3. **Open a pull request** against `main` with the
+   [PR template](https://github.com/radar-lab/OpenCDA-MARL/blob/main/.github/PR_TEMPLATE.md)
+   filled in — what changed, how it was verified, what you could not verify.
+   Maintainers review and squash-merge.
 
-* Navigate to the OpenCDA-MARL repository on GitHub.
-* Click the "Fork" button in the top-right corner of the page. This action will create a personal fork of the OpenCDA-MARL repository under your GitHub account.
+Where things go:
 
-## **Clone the repository and create your own branch**
+- A new **algorithm** does not need a PR at all: package it as described in
+  [Add an Algorithm](marl/custom_algorithms.md) and it plugs into the
+  framework from outside. PR it only if you want it shipped as a built-in.
+- A new **scenario or profile** is a YAML file under
+  `opencda_marl/_bundled/configs/<family>/`
+  that states only what it changes from the family default and scenario
+  base.
+- A **framework fix** keeps the seams listed in the workflow page: one
+  episode loop, registration instead of name dispatch, every `opencda/`
+  patch recorded in the [patch ledger](opencda/marl_patches.md).
 
-* Running the command `git clone https://github.com/your-username/OpenCDA-MARL`
-* Add the official OpenCDA-MARL repository as a remote to stay updated: `git remote add upstream https://github.com/radar-lab/OpenCDA-MARL`
-* Create your own branch `git checkout -b feature/short_summary_of_feature`
-* Make your changes, commit them, and push to your fork
-
-```bash
-git add .
-git commit -m "Description of changes"
-git push origin feature/short_summary_of_feature
-```
-
-## **Submit Pull Request**
-
-* Go to the Pull Requests tab of the official OpenCDA-MARL repository.
-* Click on the "New Pull Request" button and click compare across forks
-* Set the base repository to "lgcyaxi/OpenCDA-MARL". Set the head repository to your own forked OpenCDA-MARL repo e.g., "your-name/OpenCDA-MARL" and set the compare to the branch you created e.g., "feature/short_summary_of_feature".
-* Provide a title and description for your pull request, explaining the changes you made.
-* Click "Create Pull Request."
-* Please use [this template](https://github.com/radar-lab/OpenCDA-MARL/blob/main/.github/PR_TEMPLATE.md) for your pull requests.
-
-Project maintainers will review your changes, suggest modifications if needed, and discuss any concerns. Make necessary changes by pushing them to the same branch. The pull request will automatically update. Once your changes are approved, they will be merged into the main project.
-
-## **Contribution Guidelines**
-
-We welcome your contributions.
-
-* Please report bugs and improvements by submitting issues.
-* Submit your contributions using pull requests as described above.
-
-Thank you for contributing to OpenCDA-MARL! 🚀
+Bugs and proposals go to
+[issues](https://github.com/radar-lab/OpenCDA-MARL/issues); include the
+scenario reference, the command, and the log lines around the failure.

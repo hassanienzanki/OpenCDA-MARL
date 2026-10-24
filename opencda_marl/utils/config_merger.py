@@ -7,10 +7,11 @@ Description: Smart Configuration Merger for MARL
 Provides intelligent merging of configurations where specified fields
 can be extended instead of replaced.
 
-Copyright (c) 2025 by AXIBA (leolihao@arizona.edu), All Rights Reserved.
+Copyright (c) 2025-2026 Lihao Guo and the Radar Lab, University of Arizona
+SPDX-License-Identifier: Apache-2.0
 '''
 from typing import Dict, Union, List, Any
-from omegaconf import OmegaConf, DictConfig, ListConfig
+from omegaconf import OmegaConf, DictConfig, ListConfig, flag_override
 import copy
 
 
@@ -21,6 +22,8 @@ class SmartConfigMerger:
     Default Behavior:
     - Uses standard OmegaConf.merge (replace behavior) for all fields
     - Only fields listed in _extend_fields will be extended instead of replaced
+    - A key left empty (None) where the base holds a mapping is no override:
+      ``outputs:`` with nothing under it keeps the base's ``outputs``
 
     Usage in YAML:
     ```yaml
@@ -67,7 +70,12 @@ class SmartConfigMerger:
         # Remove _extend_fields from scenario config before merging
         scenario_clean = copy.deepcopy(scenario_config)
         if '_extend_fields' in scenario_clean:
-            del scenario_clean['_extend_fields']
+            SmartConfigMerger._delete_key(scenario_clean, '_extend_fields')
+
+        # A section left empty in YAML parses as None, and a plain merge
+        # would replace the whole base section with it (and the run then
+        # crash on None.get); an empty section changes nothing.
+        SmartConfigMerger._drop_empty_section_overrides(base_config, scenario_clean)
 
         # First, do standard OmegaConf merge (replace behavior)
         merged = OmegaConf.merge(base_config, scenario_clean)
@@ -82,6 +90,44 @@ class SmartConfigMerger:
                 SmartConfigMerger._set_nested_value(merged, field_path, extended_value)
 
         return merged
+
+    @staticmethod
+    def _drop_empty_section_overrides(base_config: DictConfig,
+                                      scenario_config: DictConfig) -> None:
+        """Delete, in place, every None in ``scenario_config`` that sits
+        where ``base_config`` holds a mapping, at any depth.
+
+        Both sides are inspected unresolved, so an interpolation is never
+        evaluated here and never counts as a mapping or as None. A side that
+        is not a mapping at the top is left to ``OmegaConf.merge``, which
+        reports the mismatch itself.
+        """
+        base_view = OmegaConf.to_container(base_config, resolve=False)
+        scenario_view = OmegaConf.to_container(scenario_config, resolve=False)
+        if not isinstance(base_view, dict) or not isinstance(scenario_view, dict):
+            return
+
+        def _prune(base_node: dict, scenario_node: dict, target: DictConfig):
+            for key, value in scenario_node.items():
+                base_value = base_node.get(key)
+                if not isinstance(base_value, dict):
+                    continue
+                if value is None:
+                    SmartConfigMerger._delete_key(target, key)
+                elif isinstance(value, dict):
+                    _prune(base_value, value, target[key])
+
+        _prune(base_view, scenario_view, scenario_config)
+
+    @staticmethod
+    def _delete_key(container: DictConfig, key: Any) -> None:
+        """Delete ``key`` from a container of the merger's own copy of the
+        override. The copy keeps the caller's struct and read-only flags,
+        which guard the caller's object, not this copy, so they are lifted
+        for the deletion only.
+        """
+        with flag_override(container, ["struct", "readonly"], [False, False]):
+            del container[key]
 
     @staticmethod
     def _get_nested_value(config: DictConfig, path: str) -> Any:
@@ -159,3 +205,24 @@ def smart_merge(base_config: Union[Dict, DictConfig],
         config = smart_merge(base, scenario, extend_fields)
     """
     return SmartConfigMerger.merge(base_config, scenario_config, extend_fields)
+
+
+#: Top-level sections the run reads as mappings (``config.get('outputs', {})
+#: .get(...)`` and the like). The default only covers an absent key, so a
+#: section present as None must become an empty mapping before the run.
+RUN_CONFIG_SECTIONS = ("scenario", "world", "runtime", "agents", "outputs", "MARL")
+
+
+def normalize_run_config(config):
+    """Replace, in place, every top-level run section that is None with an
+    empty mapping, and return ``config``.
+
+    The merge already keeps a lower layer's section under an empty override;
+    a section can still arrive as None when no layer defines it as a mapping
+    (or from a config built in code). Works on a dict or a DictConfig and
+    keeps the object itself, so attributes a caller hangs on it survive.
+    """
+    for section in RUN_CONFIG_SECTIONS:
+        if section in config and config.get(section) is None:
+            config[section] = {}
+    return config

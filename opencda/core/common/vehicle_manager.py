@@ -37,7 +37,7 @@ class VehicleManager(object):
         The configuration dictionary of this CAV.
 
     application : list
-        The application category, currently support:['single','platoon'].
+        The application category, currently support:['single','platooning'].
 
     carla_map : carla.Map
         The CARLA simulation map.
@@ -82,7 +82,8 @@ class VehicleManager(object):
             cav_world,
             current_time='',
             data_dumping=False,
-            agent=None):
+            agent=None,
+            collision_sensor_cls=None):
 
         # an unique uuid for this vehicle
         self.vid = str(uuid.uuid1())
@@ -110,9 +111,13 @@ class VehicleManager(object):
                                       carla_map,
                                       map_config)
         # safety manager
+        # <OpenCDA-MARL> pass-through of the collision sensor class so the
+        # MARL adapter installs its sensor once at construction.
         self.safety_manager = SafetyManager(cav_world=cav_world,
                                             vehicle=vehicle,
-                                            params=config_yaml['safety_manager'])
+                                            params=config_yaml['safety_manager'],
+                                            collision_sensor_cls=collision_sensor_cls)
+        # </OpenCDA-MARL>
         # behavior agent
         self.agent = None
 
@@ -124,7 +129,7 @@ class VehicleManager(object):
             # Use custom agent class (takes precedence)
             logger.debug(f"Using custom agent class: {agent}")
             self.agent = agent
-        elif 'platoon' in application:
+        elif 'platooning' in application:
             # OpenCDA platoon agent
             platoon_config = config_yaml['platoon']
             self.agent = PlatooningBehaviorAgent(
@@ -236,8 +241,27 @@ class VehicleManager(object):
         """
         Destroy the actor vehicle
         """
-        self.perception_manager.destroy()
-        self.localizer.destroy()
-        self.safety_manager.destroy()
-        self.vehicle.destroy()
-        self.map_manager.destroy()
+        # <OpenCDA-MARL>
+        # Hardened teardown: each stage is isolated so a sensor-manager
+        # failure can no longer skip vehicle destruction (actor leak in the
+        # CARLA server). Failures are reported at WARNING instead of
+        # aborting the sequence.
+        for manager_name in ("perception_manager", "localizer", "safety_manager"):
+            manager = getattr(self, manager_name, None)
+            if manager is None:
+                continue
+            try:
+                manager.destroy()
+            except Exception as exc:
+                logger.warning(
+                    f"VehicleManager.destroy: {manager_name}.destroy failed: {exc}")
+        try:
+            if self.vehicle is not None and getattr(self.vehicle, "is_alive", True):
+                self.vehicle.destroy()
+        except Exception as exc:
+            logger.warning(f"VehicleManager.destroy: vehicle.destroy failed: {exc}")
+        try:
+            self.map_manager.destroy()
+        except Exception as exc:
+            logger.warning(f"VehicleManager.destroy: map_manager.destroy failed: {exc}")
+        # </OpenCDA-MARL>

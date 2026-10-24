@@ -1,0 +1,58 @@
+# Optional training runner for Linux servers.
+#
+# This image intentionally does not COPY the repository and does not run
+# pixi install at build time. Mount the host checkout into
+# /workspace/OpenCDA-MARL so code/config edits are visible immediately without
+# rebuilding the image. CARLA itself should run in a separate server container
+# or on the host.
+
+FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIXI_HOME=/opt/pixi \
+    PATH=/opt/pixi/bin:$PATH \
+    SUMO_HOME=/usr/share/sumo \
+    SDL_VIDEODRIVER=offscreen \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        bash \
+        bzip2 \
+        ca-certificates \
+        cmake \
+        curl \
+        build-essential \
+        git \
+        libgl1 \
+        libglib2.0-0 \
+        libomp5 \
+        libsm6 \
+        libsdl2-2.0-0 \
+        libvulkan1 \
+        libx11-6 \
+        libxext6 \
+        libxrender1 \
+        mesa-vulkan-drivers \
+        nano \
+        pkg-config \
+        python3 \
+        python3-pip \
+        sumo \
+        sumo-tools \
+        unzip \
+        wget \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://pixi.sh/install.sh | PIXI_HOME=/opt/pixi bash \
+    && chmod -R a+rx /opt/pixi
+
+RUN groupadd --gid 1000 opencda \
+    && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash opencda
+
+RUN mkdir -p /workspace/OpenCDA-MARL/.pixi \
+    && chown -R opencda:opencda /workspace /home/opencda
+
+USER opencda
+WORKDIR /workspace/OpenCDA-MARL
+CMD ["/bin/bash"]

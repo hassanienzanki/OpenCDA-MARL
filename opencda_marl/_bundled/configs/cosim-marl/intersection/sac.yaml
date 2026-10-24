@@ -1,0 +1,69 @@
+description: |-
+  Co-simulation MARL baseline for the intersection scenario.
+  SAC is the first algorithm baseline for this family.
+
+runtime:
+  backend: "cosim"
+  sumo_cfg: "opencda_marl/assets/intersection/intersection.sumocfg"
+
+agents:
+  agent_type: "marl"
+
+  marl:
+    debug: false
+    max_speed: 45
+    emergency_param: 0.4
+    ignore_traffic_light: true
+    collision_time_ahead: 1.5
+
+    local_planner:
+      trajectory_update_freq: 5
+      lookahead_steps: 3
+      debug: false
+      debug_trajectory: false
+
+MARL:
+  algorithm: "masac"
+  action_space:
+    mode: speed_only
+  reward_profile: "simple_progress_v1"
+  state_dim: 8
+  action_dim: 1
+
+  masac:
+    features:
+      rel_x: 1
+      rel_y: 1
+      speed: 1
+      heading_angle: 1
+      dist_to_intersection: 1
+      dist_to_front_vehicle: 1
+      lane_position: 1
+      waypoint_buffer: 1
+
+    lstm_hidden_size: 128
+    lstm_num_layers: 1
+    actor_hidden_dims: [256, 256]
+    critic_hidden_dims: [256, 256]
+    learning_rate_actor: 3e-4
+    learning_rate_critic: 3e-4
+    learning_rate_alpha: 3e-4
+    tau: 0.005
+    gamma: 0.99
+    auto_entropy_tuning: true
+    target_entropy: -1.0
+    init_alpha: 0.2
+    log_std_min: -20
+    log_std_max: 2
+    memory_size: 25000
+    batch_size: 256
+    warmup_steps: 1000
+    max_action: 45.0
+    min_action: 0.0
+
+  training:
+    training_mode: true
+    checkpoint_dir: "checkpoints/cosim_sac/"
+    save_freq: 10
+    keep_checkpoints: 5
+    load_checkpoint: null

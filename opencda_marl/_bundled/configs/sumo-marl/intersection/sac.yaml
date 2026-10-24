@@ -1,0 +1,94 @@
+description: |-
+  SUMO-only cooperative-first training for intersection navigation.
+  Uses TraCI for fast iteration while keeping the same shared scenario identity
+  and reward contract as the CARLA intersection benchmark.
+
+world:
+  sync_mode: true
+  fixed_delta_seconds: 0.05
+  seed: 11
+  sumo_port: 8873
+  sumo_gui: true
+
+runtime:
+  backend: "sumo"
+  sumo_cfg: "opencda_marl/assets/intersection/intersection.sumocfg"
+
+scenario:
+  type: "intersection"
+
+  simulation:
+    max_steps: 2400
+    max_episodes: 1000
+
+  traffic:
+    mode: "replay"
+    replay_file: "recordings/lite_2min_SUMO.json"
+    base_speed: 45.0
+    active_junctions: [4]
+
+    planner:
+      distance: 5.0
+      spawn_offset: 7
+      dest_offset: 7
+      spawn_z_lift: 0.3
+      wp_step: 1.0
+      allow_uturn: false
+
+agents:
+  count: 10
+  agent_type: "marl"
+
+  marl:
+    max_speed: 65
+    emergency_param: 0.4
+    ignore_traffic_light: true
+    collision_time_ahead: 1.5
+
+MARL:
+  algorithm: "masac"
+  action_space:
+    mode: speed_only
+  reward_profile: "cooperative_intersection_v1"
+
+  state_dim: 9
+  action_dim: 1
+
+  masac:
+    features:
+      rel_x: 1
+      rel_y: 1
+      position_x: 1
+      position_y: 1
+      lane_position: 1
+      heading_angle: 1
+      dist_to_intersection: 1
+      dist_to_front_vehicle: 1
+      waypoint_buffer: 1
+
+    lstm_hidden_size: 128
+    lstm_num_layers: 1
+    actor_hidden_dims: [256, 256]
+    critic_hidden_dims: [256, 256]
+    learning_rate_actor: 3e-4
+    learning_rate_critic: 3e-4
+    learning_rate_alpha: 3e-4
+    tau: 0.005
+    gamma: 0.99
+    auto_entropy_tuning: true
+    target_entropy: -1.0
+    init_alpha: 0.2
+    log_std_min: -20
+    log_std_max: 2
+    batch_size: 256
+    memory_size: 25000
+    warmup_steps: 500
+    max_action: 65.0
+    min_action: 0.0
+
+  training:
+    training_mode: true
+    checkpoint_dir: "checkpoints/sumo_sac/"
+    save_freq: 10
+    keep_checkpoints: 5
+    load_checkpoint: null

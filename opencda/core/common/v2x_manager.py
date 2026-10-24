@@ -71,7 +71,10 @@ class V2XManager(object):
         self.ego_pos = deque(maxlen=100)
         self.ego_spd = deque(maxlen=100)
         # ego position and ego speed recorded for evaluate planning algorithm
-        self.ego_dynamic_trace = deque()
+        # <OpenCDA-MARL> bounded: previously grew one entry per step for the
+        # vehicle's whole lifetime (only OpenCDA's offline evaluator reads it).
+        self.ego_dynamic_trace = deque(maxlen=int(config_yaml.get('trace_maxlen', 5000)))
+        # </OpenCDA-MARL>
         # used to exclude the cav self during searching
         self.vid = vid
 
@@ -99,8 +102,15 @@ class V2XManager(object):
         self.ego_spd.append(ego_spd)
         # used for planning
         self.ego_dynamic_trace.append((ego_pos, ego_spd, self.cav_world.global_clock))
-        # evaluation
-        self.search()
+        # <OpenCDA-MARL>
+        # The nearby-CAV search is O(N^2) Python across all vehicle managers
+        # (and calls get_ego_pos twice per neighbour, each drawing noise), and
+        # its only consumer is platooning. When V2X is disabled there is
+        # nothing to communicate with, so skip it. Stock behaviour when
+        # enabled: search every update.
+        if self.cda_enabled:
+            self.search()
+        # </OpenCDA-MARL>
 
         # the ego pos in platooning_plugin is used for self-localization,
         # so we shouldn't add noise or lag.
@@ -160,15 +170,20 @@ class V2XManager(object):
         vehicle_manager_dict = self.cav_world.get_vehicle_managers()
 
         for vid, vm in vehicle_manager_dict.items():
-            # avoid the Nonetype error at the first simulation step
-            if not vm.v2x_manager.get_ego_pos():
-                continue
             # avoid add itself as the cav nearby
             if vid == self.vid:
                 continue
+            # <OpenCDA-MARL> one get_ego_pos per neighbour (it draws fresh
+            # noise each call, so the previous guard+use pair also compared
+            # against a different sample than the one it tested).
+            other_pos = vm.v2x_manager.get_ego_pos()
+            # avoid the Nonetype error at the first simulation step
+            if not other_pos:
+                continue
             distance = compute_distance(
                 self.ego_pos[-1].location,
-                vm.v2x_manager.get_ego_pos().location)
+                other_pos.location)
+            # </OpenCDA-MARL>
 
             if distance < self.communication_range:
                 self.cav_nearby.update({vid: vm})

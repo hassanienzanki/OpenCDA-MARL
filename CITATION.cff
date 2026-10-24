@@ -1,0 +1,87 @@
+cff-version: 1.2.0
+message: >-
+  If you use OpenCDA-MARL, please cite the framework paper below. The
+  preference-conditioned learners (PCMASAC / PCMAPPO / PCMATD3) build on
+  PCMA; please also cite the PCMA paper listed under references when you
+  use them.
+title: OpenCDA-MARL
+type: software
+version: 2.1.0
+repository-code: https://github.com/radar-lab/OpenCDA-MARL
+url: https://radar-lab.github.io/OpenCDA-MARL/
+license: Apache-2.0
+license-url: https://github.com/radar-lab/OpenCDA-MARL/blob/main/LICENSE
+authors:
+  - family-names: Guo
+    given-names: Lihao
+  - family-names: Liu
+    given-names: Louis
+  - family-names: Tang
+    given-names: Jiahao
+  - family-names: Liu
+    given-names: Bo
+  - family-names: Cao
+    given-names: Siyang
+preferred-citation:
+  type: article
+  title: "OpenCDA-MARL: A Unified Benchmarking Framework for Cooperative Autonomous Intersection Management With Multi-Agent Reinforcement Learning"
+  authors:
+    - family-names: Guo
+      given-names: Lihao
+    - family-names: Liu
+      given-names: Louis
+    - family-names: Tang
+      given-names: Jiahao
+    - family-names: Liu
+      given-names: Bo
+    - family-names: Cao
+      given-names: Siyang
+  journal: IEEE Robotics and Automation Letters
+  year: 2026
+  volume: 11
+  issue: 4
+  start: 4291
+  end: 4298
+  doi: 10.1109/LRA.2026.3664656
+references:
+  - type: generic
+    title: Learning Coordinated Preference for Multi-Objective Multi-Agent Reinforcement Learning
+    authors:
+      - family-names: Wang
+        given-names: Pengxin
+      - family-names: Guo
+        given-names: Lihao
+      - family-names: Xie
+        given-names: Yi
+      - family-names: Liu
+        given-names: Bo
+      - family-names: Cao
+        given-names: Siyang
+      - family-names: Chen
+        given-names: Jingdi
+    year: 2026
+    identifiers:
+      - type: other
+        value: arXiv:2606.14693
+    url: https://arxiv.org/abs/2606.14693
+    notes: The PCMA paper the preference-conditioned learners build on; they do not include its preference planner.
+  - type: generic
+    title: "OpenCDA: An Open Cooperative Driving Automation Framework Integrated with Co-Simulation"
+    authors:
+      - family-names: Xu
+        given-names: Runsheng
+      - family-names: Guo
+        given-names: Yi
+      - family-names: Han
+        given-names: Xu
+      - family-names: Xia
+        given-names: Xin
+      - family-names: Xiang
+        given-names: Hao
+      - family-names: Ma
+        given-names: Jiaqi
+    year: 2021
+    identifiers:
+      - type: other
+        value: arXiv:2107.06260
+    url: https://arxiv.org/abs/2107.06260

@@ -74,6 +74,18 @@ class Controller:
         self.current_speed = 0.
         # past steering
         self.past_steering = 0.
+        # <OpenCDA-MARL> debug info for TensorBoard and CARLA overlay
+        # Single dict reused each tick — avoids per-tick allocation.
+        # Consumers read via ControlManager.get_last_debug_info().
+        self.last_debug_info = {
+            'target_speed': 0.0,
+            'current_speed': 0.0,
+            'target_location': None,
+            'steer': 0.0,
+            'throttle': 0.0,
+            'brake': 0.0,
+        }
+        # </OpenCDA-MARL>
 
         self.dynamic = args['dynamic']
 
@@ -153,6 +165,15 @@ class Controller:
         achieve target location.
 
         """
+        # <OpenCDA-MARL> Guard zero-length / non-finite target vectors.
+        # The MARL behavior baseline can occasionally hand the controller a
+        # target waypoint that coincides with the ego pose near route
+        # completion. Treat this as a no-steer case instead of emitting a
+        # RuntimeWarning from the acos(dot / norms) path.
+        if self.current_transform is None or target_location is None:
+            self._lat_ebuffer.append(0.0)
+            return 0.0
+
         v_begin = self.current_transform.location
         v_end = v_begin + carla.Location(
             x=math.cos(
@@ -164,9 +185,25 @@ class Controller:
         w_vec = np.array([target_location.x -
                           v_begin.x, target_location.y -
                           v_begin.y, 0.0])
-        _dot = math.acos(np.clip(np.dot(
-            w_vec, v_vec) / (np.linalg.norm(w_vec) * np.linalg.norm(v_vec)),
-                                 -1.0, 1.0))
+        v_norm = np.linalg.norm(v_vec)
+        w_norm = np.linalg.norm(w_vec)
+
+        if (
+            not np.isfinite(v_norm)
+            or not np.isfinite(w_norm)
+            or v_norm <= 1.0e-8
+            or w_norm <= 1.0e-8
+        ):
+            self._lat_ebuffer.append(0.0)
+            return 0.0
+
+        dot_ratio = np.dot(w_vec, v_vec) / (w_norm * v_norm)
+        if not np.isfinite(dot_ratio):
+            self._lat_ebuffer.append(0.0)
+            return 0.0
+        # </OpenCDA-MARL>
+
+        _dot = math.acos(np.clip(dot_ratio, -1.0, 1.0))
         _cross = np.cross(v_vec, w_vec)
 
         if _cross[2] < 0:
@@ -240,4 +277,18 @@ class Controller:
         control.hand_brake = False
         control.manual_gear_shift = False
         self.past_steering = steering
+        # <OpenCDA-MARL> update debug info in-place (no allocation)
+        d = self.last_debug_info
+        d['target_speed'] = target_speed
+        d['current_speed'] = self.current_speed
+        d['steer'] = steering
+        d['throttle'] = control.throttle
+        d['brake'] = control.brake
+        if waypoint is not None:
+            d['target_location'] = {
+                'x': waypoint.x, 'y': waypoint.y,
+                'z': getattr(waypoint, 'z', 0.0)}
+        else:
+            d['target_location'] = None
+        # </OpenCDA-MARL>
         return control

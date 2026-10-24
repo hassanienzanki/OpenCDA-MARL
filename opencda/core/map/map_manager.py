@@ -105,11 +105,6 @@ class MapManager(object):
                                      [self.meter_per_pixel,
                                       self.meter_per_pixel]))) / 2
 
-        # list of all start waypoints in HD Map
-        topology = [x[0] for x in carla_map.get_topology()]
-        # sort by altitude
-        self.topology = sorted(topology, key=lambda w: w.transform.location.z)
-
         # basic elements in HDMap: lane, crosswalk and traffic light
         self.lane_info = {}
         self.crosswalk_info = {}
@@ -117,16 +112,36 @@ class MapManager(object):
         # this is mainly used for efficient filtering
         self.bound_info = {'lanes': {},
                            'crosswalks': {}}
+        self.topology = []
 
-        # generate information for traffic light
-        self.generate_tl_info(self.world)
-        # generate lane, crosswalk and boundary information
-        self.generate_lane_cross_info()
+        # <OpenCDA-MARL>
+        # The lane / crosswalk / traffic-light tables are consumed only by
+        # the BEV rasterizer (rasterize_static / rasterize_dynamic), which
+        # run_step skips when the manager is inactive. Building them walks
+        # the whole map topology and associates every lane with every
+        # traffic light: ~0.2 s per VehicleManager construction, i.e. per
+        # vehicle spawn, for nothing when 'activate' is false. Stock
+        # behaviour when active.
+        if self.actvate:
+            self._build_static_map_info(carla_map)
+        # </OpenCDA-MARL>
 
         # bev maps
         self.dynamic_bev = None
         self.static_bev = None
         self.vis_bev = None
+
+    def _build_static_map_info(self, carla_map):
+        """Walk the HD map once: topology, traffic lights, lanes, crosswalks."""
+        # list of all start waypoints in HD Map
+        topology = [x[0] for x in carla_map.get_topology()]
+        # sort by altitude
+        self.topology = sorted(topology, key=lambda w: w.transform.location.z)
+
+        # generate information for traffic light
+        self.generate_tl_info(self.world)
+        # generate lane, crosswalk and boundary information
+        self.generate_lane_cross_info()
 
     def update_information(self, ego_pose):
         """
@@ -584,4 +599,10 @@ class MapManager(object):
         self.vis_bev = cv2.cvtColor(self.vis_bev, cv2.COLOR_RGB2BGR)
 
     def destroy(self):
-        cv2.destroyAllWindows()
+        # <OpenCDA-MARL>
+        # Guard the process-global window teardown: this runs once per
+        # destroyed vehicle, and without visualization there are no windows —
+        # calling it unconditionally was a per-vehicle global GUI side effect.
+        if self.visualize:
+            cv2.destroyAllWindows()
+        # </OpenCDA-MARL>

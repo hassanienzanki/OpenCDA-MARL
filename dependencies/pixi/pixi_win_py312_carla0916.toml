@@ -1,0 +1,71 @@
+[workspace]
+authors = ["AXIBA <leolihao@arizona.edu>"]
+channels = ["conda-forge", "pytorch", "nvidia"]
+name = "OpenCDA"
+platforms = ["win-64"]
+version = "0.1.0-alpha"
+
+[system-requirements]
+cuda = "12.8"
+
+[tasks]
+start = "python opencda.py"
+marl-quick-test = "python opencda.py -t marl/intersection/rule_based --marl"
+cda-quick-test = "python opencda.py -t single_2lanefree_carla"
+cda-platoon-2lanefree = "python opencda.py -t platoon_joining_2lanefree_carla --apply_ml"
+cda-single-town06 = "python opencda.py -t single_town06_carla --apply_ml"
+cda-platoon-town06 = "python opencda.py -t platoon_joining_town06_carla --apply_ml"
+
+[feature.docs.dependencies]
+mkdocs = ">=1.6.0,<2"
+mkdocs-material = ">=9.5.0,<10"
+
+[feature.docs.pypi-dependencies]
+mkdocs-mermaid2-plugin = ">=1.2.1, <2"
+mkdocs-git-revision-date-localized-plugin = ">=1.4.7, <2"
+pymdown-extensions = ">=10.12.0,<11"
+click = "*"
+
+[feature.docs.tasks]
+docs-serve = "mkdocs serve --livereload"
+docs-build = "mkdocs build"
+docs-deploy = "mkdocs gh-deploy"
+
+[environments]
+default = { solve-group = "default" }
+docs = { features = ["docs"], solve-group = "default" }
+
+[dependencies]
+pip = ">=25.2,<26"
+python = "3.12.*"
+matplotlib = ">=3.10.5,<4"
+networkx = ">=3.4.2,<4"
+numpy = ">=2.2.6,<3"
+pillow = ">=11.3.0,<12"
+pyparsing = ">=3.2.3,<4"
+six = ">=1.17.0,<2"
+open3d = ">=0.19.0,<0.20"
+opencv = ">=4.12.0,<5"
+pandas = ">=2.3.2,<3"
+pygame = ">=2.6.1,<3"
+scikit-learn = ">=1.7.1,<2"
+scipy = ">=1.15.2,<2"
+seaborn = ">=0.13.2,<0.14"
+lxml = ">=6.0.0,<7"
+shapely = ">=2.1.1,<3"
+omegaconf = ">=2.3.0,<3"
+ultralytics = ">=8.3.176,<9"
+gitpython = ">=3.1.30,<4"
+loguru = ">=0.7.3,<0.8"
+pyyaml = ">=6.0.2,<7"
+h5py = ">=3.14.0,<4"
+typing_extensions = ">=4.15.0,<5"
+tensorboard = ">=2.20.0,<3"
+pyclean = ">=3.4.0,<4"
+
+[pypi-dependencies]
+gitpython = ">=3.1.30"
+sumolib = ">=1.24.0, <2"
+torch = { index = "https://download.pytorch.org/whl/nightly/cu128" }
+torchvision = { index = "https://download.pytorch.org/whl/nightly/cu128" }
+carla = { path = "./dependencies/whl/carla-0.9.16-cp312-cp312-win_amd64.whl" }

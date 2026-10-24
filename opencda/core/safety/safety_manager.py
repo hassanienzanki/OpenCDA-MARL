@@ -5,6 +5,10 @@ control back to human if necessary
 import weakref
 from collections import deque
 
+# <OpenCDA-MARL> logger for hardened sensor teardown
+from loguru import logger
+# </OpenCDA-MARL>
+
 from opencda.core.safety.sensors import CollisionSensor, \
     TrafficLightDector, StuckDetector, OffRoadDetector, IMUSensor
 
@@ -21,17 +25,28 @@ class SafetyManager:
         A dictionary of parameters that are used to configure the SafetyManager.
     """
 
-    def __init__(self, cav_world, vehicle, params):
+    def __init__(self, cav_world, vehicle, params, collision_sensor_cls=None):
         self.vehicle = vehicle
         self.cav_world = weakref.ref(cav_world)()
         self.print_message = params['print_message']
-        self.imu_sensor = IMUSensor(vehicle)
+        # <OpenCDA-MARL>
+        # Sensor-actor economy: the safety IMU duplicates the localization
+        # IMU and its data deque is only consumed by OpenCDA's comfort
+        # evaluator; make it opt-in (params['imu']: default True keeps stock
+        # OpenCDA behavior). collision_sensor_cls lets callers install a
+        # specialised collision sensor at construction time instead of
+        # spawning the stock one and immediately destroying/re-spawning it.
+        collision_cls = collision_sensor_cls or CollisionSensor
+        use_imu = bool(params.get('imu', True))
+        self.imu_sensor = IMUSensor(vehicle) if use_imu else None
         self.status_queue = deque(maxlen=params.get('queue_maxlen', 2000))
-        self.sensors = [CollisionSensor(vehicle, params['collision_sensor']),
+        self.sensors = [collision_cls(vehicle, params['collision_sensor']),
                         StuckDetector(params['stuck_dector']),
                         OffRoadDetector(params['offroad_dector']),
-                        TrafficLightDector(params['traffic_light_detector'], vehicle),
-                        self.imu_sensor]
+                        TrafficLightDector(params['traffic_light_detector'], vehicle)]
+        if self.imu_sensor is not None:
+            self.sensors.append(self.imu_sensor)
+        # </OpenCDA-MARL>
 
     def update_info(self, data_dict) -> dict:
         status_dict = {}
@@ -53,8 +68,18 @@ class SafetyManager:
                 print(status_dict)
 
     def destroy(self):
+        # <OpenCDA-MARL>
+        # Per-sensor isolation: one sensor's destroy failure must not skip
+        # the rest of the list (the list mixes real CARLA sensor actors with
+        # pure-python detectors).
         for sensor in self.sensors:
-            sensor.destroy()
+            try:
+                sensor.destroy()
+            except Exception as exc:
+                logger.warning(
+                    f"SafetyManager.destroy: {type(sensor).__name__}.destroy "
+                    f"failed: {exc}")
+        # </OpenCDA-MARL>
         self.sensors.clear()  # Clear references to avoid GC warnings
         self.imu_sensor = None
         self.vehicle = None

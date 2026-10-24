@@ -11,6 +11,7 @@ This module provides GlobalRoutePlanner implementation.
 import math
 import numpy as np
 import networkx as nx
+from collections.abc import Mapping
 
 import carla
 from opencda.core.plan.local_planner_behavior import RoadOption
@@ -59,7 +60,58 @@ class GlobalRoutePlanner(object):
         self._intersection_end_node = -1
         self._previous_decision = RoadOption.VOID
         self._world = world
-        self._debug = debug
+        self._debug_flags = {
+            'localize': False,
+            'lane_change_links': False,
+            'graph': False,
+            'path': False,
+        }
+        self._debug_options = {
+            'localize': {
+                'label': True,
+                'life_time': 10.0,
+                'point_size': 0.2,
+            },
+            'lane_change_links': {
+                'life_time': 10.0,
+                'point_size': 0.2,
+            },
+            'graph': {
+                'junction_only': False,
+                'route_only': False,
+                'node_labels': False,
+                'edge_labels': False,
+                'life_time': 10.0,
+                'node_size': 0.2,
+                'edge_thickness': 0.1,
+            },
+            'path': {
+                'hop_labels': False,
+                'start_end_labels': False,
+                'life_time': 10.0,
+                'line_thickness': 0.25,
+                'arrow_thickness': 0.15,
+                'arrow_size': 0.25,
+            },
+        }
+        if isinstance(debug, Mapping):
+            for key in self._debug_flags:
+                value = debug.get(key, False)
+                if isinstance(value, Mapping):
+                    self._debug_flags[key] = bool(value.get('enabled', True))
+                    for option_key, option_value in value.items():
+                        if option_key == 'enabled':
+                            continue
+                        if option_key in self._debug_options[key]:
+                            self._debug_options[key][option_key] = option_value
+                else:
+                    self._debug_flags[key] = bool(value)
+            self._debug = any(self._debug_flags.values())
+        else:
+            self._debug = bool(debug)
+            if self._debug:
+                for key in self._debug_flags:
+                    self._debug_flags[key] = True
 
     def setup(self):
         """
@@ -191,7 +243,7 @@ class GlobalRoutePlanner(object):
                         intersection=end_wp.is_junction,
                         type=RoadOption.LANEFOLLOW)
 
-    def _localize(self, location):
+    def _localize(self, location, role=None):
         """
         This function finds the road segment closest to given location.
 
@@ -217,22 +269,24 @@ class GlobalRoutePlanner(object):
                 "Lane id : ", waypoint.lane_id,
                 "Location : ", waypoint.transform.location.x,
                 waypoint.transform.location.y)
-        if self._debug:
+        if self._debug_flags['localize']:
+            opts = self._debug_options['localize']
             # visualize the waypoint
             self._world.debug.draw_point(
                 waypoint.transform.location,
-                size=0.2,
+                size=float(opts['point_size']),
                 color=carla.Color(0, 255, 0),  # Green for waypoint
-                life_time=10.0
+                life_time=float(opts['life_time'])
             )
 
-            # visualize the waypoint by a text
-            self._world.debug.draw_string(
-                waypoint.transform.location,
-                "Waypoint" + str(edge),
-                color=carla.Color(0, 255, 0),  # Green for waypoint
-                life_time=10.0
-            )
+            if opts.get('label', True):
+                label = f"{role or 'waypoint'} {edge}"
+                self._world.debug.draw_string(
+                    waypoint.transform.location,
+                    label,
+                    color=carla.Color(0, 255, 0),
+                    life_time=float(opts['life_time'])
+                )
         return edge
 
     def _lane_change_link(self):
@@ -260,13 +314,14 @@ class GlobalRoutePlanner(object):
                             next_road_option = RoadOption.CHANGELANERIGHT
 
                             # <OpenCDA-MARL> - visualize the next waypoint
-                            if self._debug:
+                            if self._debug_flags['lane_change_links']:
+                                opts = self._debug_options['lane_change_links']
                                 self._world.debug.draw_point(
                                     next_waypoint.transform.location,
-                                    size=0.2,
+                                    size=float(opts['point_size']),
                                     # Yellow for waypoint
                                     color=carla.Color(255, 255, 0),
-                                    life_time=10.0
+                                    life_time=float(opts['life_time'])
                                 )
                             # <OpenCDA-MARL>
 
@@ -291,13 +346,14 @@ class GlobalRoutePlanner(object):
                             next_road_option = RoadOption.CHANGELANELEFT
 
                             # <OpenCDA-MARL> - visualize the next waypoint
-                            if self._debug:
+                            if self._debug_flags['lane_change_links']:
+                                opts = self._debug_options['lane_change_links']
                                 self._world.debug.draw_point(
                                     next_waypoint.transform.location,
-                                    size=0.2,
+                                    size=float(opts['point_size']),
                                     # Green for waypoint
                                     color=carla.Color(0, 255, 0),
-                                    life_time=10.0
+                                    life_time=float(opts['life_time'])
                                 )
                             # </OpenCDA-MARL>
 
@@ -328,33 +384,96 @@ class GlobalRoutePlanner(object):
         return np.linalg.norm(l1 - l2)
 
 # <OpenCDA-MARL> - visualize the road network graph and path
-    def visualize_graph(self, world, life_time=30.0):
+    def _edge_midpoint(self, source_vertex, target_vertex, z_offset):
+        return carla.Location(
+            x=(source_vertex[0] + target_vertex[0]) * 0.5,
+            y=(source_vertex[1] + target_vertex[1]) * 0.5,
+            z=(source_vertex[2] + target_vertex[2]) * 0.5 + z_offset,
+        )
+
+    def _graph_edge_color(self, edge_data, on_route=False):
+        edge_type = edge_data.get('type', RoadOption.LANEFOLLOW)
+        if on_route:
+            return carla.Color(255, 165, 0)
+        if edge_type == RoadOption.CHANGELANELEFT:
+            return carla.Color(0, 128, 255)
+        if edge_type == RoadOption.CHANGELANERIGHT:
+            return carla.Color(255, 0, 255)
+        if edge_data.get('intersection', False):
+            return carla.Color(0, 255, 255)
+        return carla.Color(0, 255, 0)
+
+    def _select_graph_edges(self, route=None):
+        opts = self._debug_options['graph']
+        selected = []
+        route_pairs = set()
+        if route and len(route) > 1:
+            route_pairs = {(route[i], route[i + 1]) for i in range(len(route) - 1)}
+
+        for source, target, edge_data in self._graph.edges(data=True):
+            on_route = (source, target) in route_pairs
+
+            if opts.get('route_only', False) and not on_route:
+                continue
+            if opts.get('junction_only', False) and not edge_data.get('intersection', False) and not on_route:
+                continue
+
+            selected.append((source, target, edge_data, on_route))
+        return selected
+
+    def visualize_graph(self, world, route=None, start_edge=None, end_edge=None, life_time=None):
         """
         Visualize the road network graph in Carla.
 
         Args:
             world: carla.World object
+            route: Optional traced route node list
+            start_edge: Optional localized start edge
+            end_edge: Optional localized end edge
             life_time: How long the visualization should last (seconds)
         """
         if self._graph is None:
             print("Graph not initialized. Call setup() first.")
             return
 
-        # Draw all nodes as points
-        for node_id, node_data in self._graph.nodes(data=True):
+        opts = self._debug_options['graph']
+        life_time = float(opts['life_time'] if life_time is None else life_time)
+        selected_edges = self._select_graph_edges(route)
+        highlighted_nodes = set(route or [])
+        if start_edge:
+            highlighted_nodes.update(start_edge)
+        if end_edge:
+            highlighted_nodes.update(end_edge)
+
+        selected_nodes = set()
+        for source, target, _, _ in selected_edges:
+            selected_nodes.add(source)
+            selected_nodes.add(target)
+
+        # Draw selected nodes as points
+        for node_id in selected_nodes:
+            node_data = self._graph.nodes[node_id]
             vertex = node_data['vertex']
             location = carla.Location(
                 x=vertex[0], y=vertex[1], z=vertex[2] + 0.5)
+            node_color = carla.Color(255, 128, 0) if node_id in highlighted_nodes else carla.Color(255, 0, 0)
 
             world.debug.draw_point(
                 location,
-                size=0.2,
-                color=carla.Color(255, 0, 0),  # Red for nodes
+                size=float(opts['node_size']),
+                color=node_color,
                 life_time=life_time
             )
+            if opts.get('node_labels', False):
+                world.debug.draw_string(
+                    location + carla.Location(z=0.2),
+                    f"node {node_id}",
+                    color=node_color,
+                    life_time=life_time,
+                )
 
-        # Draw all edges as lines
-        for source, target, edge_data in self._graph.edges(data=True):
+        # Draw selected edges as lines
+        for source, target, edge_data, on_route in selected_edges:
             source_vertex = self._graph.nodes[source]['vertex']
             target_vertex = self._graph.nodes[target]['vertex']
 
@@ -362,20 +481,29 @@ class GlobalRoutePlanner(object):
                 x=source_vertex[0], y=source_vertex[1], z=source_vertex[2] + 0.3)
             end_loc = carla.Location(
                 x=target_vertex[0], y=target_vertex[1], z=target_vertex[2] + 0.3)
-
-            # Color edges differently based on intersection status
-            color = carla.Color(0, 255, 255) if edge_data.get(
-                'intersection', False) else carla.Color(0, 255, 0)
+            color = self._graph_edge_color(edge_data, on_route=on_route)
 
             world.debug.draw_line(
                 start_loc,
                 end_loc,
-                thickness=0.1,
-                color=color,  # Cyan for intersections, Green for regular roads
+                thickness=float(opts['edge_thickness']),
+                color=color,
                 life_time=life_time
             )
+            if opts.get('edge_labels', False):
+                label_loc = self._edge_midpoint(source_vertex, target_vertex, 0.55)
+                edge_type = edge_data.get('type', RoadOption.LANEFOLLOW)
+                label = f"{source}->{target} {edge_type.name}"
+                if edge_data.get('intersection', False):
+                    label += " J"
+                world.debug.draw_string(
+                    label_loc,
+                    label,
+                    color=color,
+                    life_time=life_time,
+                )
 
-    def visualize_path(self, world, route, life_time=10.0):
+    def visualize_path(self, world, route, life_time=None):
         """
         Visualize a specific path/route through the graph.
 
@@ -387,6 +515,9 @@ class GlobalRoutePlanner(object):
         if not route or len(route) < 2:
             return
 
+        opts = self._debug_options['path']
+        life_time = float(opts['life_time'] if life_time is None else life_time)
+
         # Draw the path with thicker lines and different color
         for i in range(len(route) - 1):
             source_node = route[i]
@@ -394,6 +525,7 @@ class GlobalRoutePlanner(object):
 
             source_vertex = self._graph.nodes[source_node]['vertex']
             target_vertex = self._graph.nodes[target_node]['vertex']
+            edge_data = self._graph.edges[source_node, target_node]
 
             start_loc = carla.Location(
                 x=source_vertex[0], y=source_vertex[1], z=source_vertex[2] + 0.8)
@@ -403,8 +535,8 @@ class GlobalRoutePlanner(object):
             world.debug.draw_line(
                 start_loc,
                 end_loc,
-                thickness=0.25,
-                color=carla.Color(255, 255, 0),  # Yellow for the planned path
+                thickness=float(opts['line_thickness']),
+                color=carla.Color(255, 255, 0),
                 life_time=life_time
             )
 
@@ -412,10 +544,34 @@ class GlobalRoutePlanner(object):
             world.debug.draw_arrow(
                 start_loc,
                 end_loc,
-                thickness=0.15,
-                arrow_size=0.25,
+                thickness=float(opts['arrow_thickness']),
+                arrow_size=float(opts['arrow_size']),
                 color=carla.Color(255, 255, 0),
                 life_time=life_time
+            )
+            if opts.get('hop_labels', False):
+                label_loc = self._edge_midpoint(source_vertex, target_vertex, 0.95)
+                world.debug.draw_string(
+                    label_loc,
+                    f"{i}: {source_node}->{target_node} {edge_data.get('type', RoadOption.LANEFOLLOW).name}",
+                    color=carla.Color(255, 255, 0),
+                    life_time=life_time,
+                )
+
+        if opts.get('start_end_labels', False):
+            start_vertex = self._graph.nodes[route[0]]['vertex']
+            end_vertex = self._graph.nodes[route[-1]]['vertex']
+            world.debug.draw_string(
+                carla.Location(x=start_vertex[0], y=start_vertex[1], z=start_vertex[2] + 1.2),
+                f"start {route[0]}",
+                color=carla.Color(0, 255, 0),
+                life_time=life_time,
+            )
+            world.debug.draw_string(
+                carla.Location(x=end_vertex[0], y=end_vertex[1], z=end_vertex[2] + 1.2),
+                f"end {route[-1]}",
+                color=carla.Color(255, 0, 0),
+                life_time=life_time,
             )
 # </OpenCDA-MARL> - visualize the road network graph and path
 
@@ -434,21 +590,25 @@ class GlobalRoutePlanner(object):
         """
 
         # print("call localize from _path_search")
-        start, end = self._localize(origin), self._localize(destination)
+        start = self._localize(origin, role="start")
+        end = self._localize(destination, role="end")
         # Visualize the entire graph
-        if self._debug:
-            # visualize the start and end
-            self.visualize_graph(self._world, life_time=10.0)
-
-        # print(f"_graph: {self._graph}")
         route = nx.astar_path(
             self._graph, source=start[0], target=end[0],
             heuristic=self._distance_heuristic, weight='length')
         route.append(end[1])
 
+        if self._debug_flags['graph']:
+            self.visualize_graph(
+                self._world,
+                route=route,
+                start_edge=start,
+                end_edge=end,
+            )
+
         # Visualize the path
-        if self._debug:
-            self.visualize_path(self._world, route, life_time=10.0)
+        if self._debug_flags['path']:
+            self.visualize_path(self._world, route)
 
         return route
 

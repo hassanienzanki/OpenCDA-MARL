@@ -1,0 +1,47 @@
+description: |-
+  Example worker manifest for direction-preserving matrix launch.
+  Copy this file per deployment and run launch_distributed_matrix.py --dry-run
+  before launching cells. For true parallelism on a multi-GPU machine, define
+  one worker entry per GPU with a unique CARLA RPC/streaming port pair
+  (or run one launch_matrix.py --parallel N on that machine instead).
+
+  Ports: keep the pairs at least 10 apart. carla_streaming_port 0 lets CARLA
+  pick a free port, which is the safest choice; a fixed value must be above
+  1024 on Linux (an unprivileged CARLA cannot bind a low port).
+
+workers:
+  - name: windows-gpu0
+    os: windows
+    gpu_id: 0
+    carla_root: D:\Applications\CARLA_0.9.16
+    carla_rpc_port: 2000
+    carla_streaming_port: 0
+    max_concurrent_cells: 1
+    artifact_root: D:\path\to\OpenCDA-MARL
+
+  - name: windows-gpu1
+    os: windows
+    gpu_id: 1
+    carla_root: D:\Applications\CARLA_0.9.16
+    carla_rpc_port: 2010
+    carla_streaming_port: 0
+    max_concurrent_cells: 1
+    artifact_root: D:\path\to\OpenCDA-MARL
+
+  - name: linux-gpu0
+    os: ubuntu
+    gpu_id: 0
+    carla_root: /opt/CARLA_0.9.16
+    carla_rpc_port: 2000
+    carla_streaming_port: 0
+    max_concurrent_cells: 1
+    artifact_root: /path/to/OpenCDA-MARL
+
+  - name: linux-gpu1
+    os: ubuntu
+    gpu_id: 1
+    carla_root: /opt/CARLA_0.9.16
+    carla_rpc_port: 2010
+    carla_streaming_port: 0
+    max_concurrent_cells: 1
+    artifact_root: /path/to/OpenCDA-MARL

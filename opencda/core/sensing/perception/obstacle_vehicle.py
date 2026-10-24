@@ -156,6 +156,30 @@ class ObstacleVehicle(object):
         """
         self.velocity = velocity
 
+    # <OpenCDA-MARL>
+    @classmethod
+    def from_snapshot(cls, snap):
+        """Build an ObstacleVehicle from a per-step kinematics record.
+
+        ``snap`` is any object exposing ``actor_id``, ``type_id``,
+        ``location`` (carla.Location), ``transform`` (carla.Transform),
+        ``velocity`` (carla.Vector3D) and ``bounding_box``. Consumers read
+        obstacles through ``get_location/get_transform/get_velocity`` and
+        ``bounding_box``/``carla_id``, so this is interface-equivalent to
+        ``set_vehicle`` without the six per-obstacle server round trips.
+        """
+        self = cls.__new__(cls)
+        self.location = snap.location
+        self.transform = snap.transform
+        self.bounding_box = snap.bounding_box
+        self.carla_id = snap.actor_id
+        self.type_id = snap.type_id
+        self.color = None
+        self.velocity = snap.velocity
+        self.o3d_bbx = None
+        return self
+    # </OpenCDA-MARL>
+
     def set_vehicle(self, vehicle, lidar, sumo2carla_ids):
         """
         Assign the attributes from carla.Vehicle to ObstacleVehicle.

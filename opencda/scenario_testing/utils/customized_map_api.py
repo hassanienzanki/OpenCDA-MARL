@@ -23,7 +23,11 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 
-def load_customized_world(xodr_path, client):
+# <OpenCDA-MARL>
+# Vehicle-only worlds do not need a pedestrian navmesh. Repeated OpenDRIVE
+# reloads otherwise start additional RecastBuilder processes on the server.
+def load_customized_world(xodr_path, client, *, enable_pedestrian_navigation=False):
+# </OpenCDA-MARL>
     """
     Load .xodr file and return the carla world object
 
@@ -34,6 +38,9 @@ def load_customized_world(xodr_path, client):
 
     client : carla.client
         The created CARLA simulation client.
+
+    enable_pedestrian_navigation : bool
+        Build a navmesh for AI walkers. Disabled for vehicle-only worlds.
     """
     if os.path.exists(xodr_path):
         with open(xodr_path) as od_file:
@@ -54,7 +61,10 @@ def load_customized_world(xodr_path, client):
                 wall_height=wall_height,
                 additional_width=extra_width,
                 smooth_junctions=False,
-                enable_mesh_visibility=True))
+                enable_mesh_visibility=True,
+                # <OpenCDA-MARL>
+                enable_pedestrian_navigation=enable_pedestrian_navigation))
+                # </OpenCDA-MARL>
         return world
     else:
         print('file not found.')

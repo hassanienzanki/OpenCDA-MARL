@@ -44,3 +44,23 @@ class ControlManager(object):
         """
         control_command = self.controller.run_step(target_speed, waypoint)
         return control_command
+
+    # <OpenCDA-MARL> debug info for TensorBoard and CARLA overlay
+    #
+    # The PID controller records steer/throttle/brake each tick (near-zero cost).
+    #
+    # To display in CARLA, wire it through VehicleManager.run_step():
+    #
+    #   # in VehicleManager.run_step(), after self.controller.run_step():
+    #   if hasattr(self.agent, 'record_controller_debug'):
+    #       self.agent.record_controller_debug(self.controller.get_last_debug_info())
+    #
+    # Then in VanillaAgent, implement record_controller_debug() and use the
+    # dict in draw_debug_preview() — gated by local_planner.debug_trajectory.
+    #
+    # Config: agents.vanilla.local_planner.debug_trajectory: true
+    # Keys:   target_speed, current_speed, target_location, steer, throttle, brake
+    def get_last_debug_info(self):
+        """Return latest controller debug info dict from the PID controller."""
+        return getattr(self.controller, "last_debug_info", {})
+    # </OpenCDA-MARL>

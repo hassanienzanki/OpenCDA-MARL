@@ -3,10 +3,13 @@ Author       : AXIBA leolihao@arizona.edu
 Date         : 2025-08-28 17:05:42
 FilePath     : /OpenCDA-MARL/test/marl/test_intersection_build.py
 Description  : 
-Copyright (c) 2025 by AXIBA (leolihao@arizona.edu), All Rights Reserved.
+Copyright (c) 2025-2026 Lihao Guo and the Radar Lab, University of Arizona
+SPDX-License-Identifier: Apache-2.0
 '''
 import sys
+import os
 from pathlib import Path
+import pytest
 from loguru import logger
 
 # Add project root to path
@@ -18,8 +21,8 @@ logger.remove()
 logger.add(sys.stdout, level="INFO")
 
 
-def test_intersection_build():
-    from opencda_marl.scenarios import ScenarioBuilder
+def _build_intersection_scenario():
+    from opencda_marl._kernel.scenarios import ScenarioBuilder
     from opencda.core.common.cav_world import CavWorld
     
     scenario_builder = ScenarioBuilder()
@@ -50,10 +53,19 @@ def test_intersection_build():
     )
     return scenario_manager
 
+
+@pytest.mark.skipif(
+    os.environ.get("OPENCDA_RUN_CARLA_INTEGRATION") != "1",
+    reason="requires a running CARLA server and local intersection map",
+)
+def test_intersection_build():
+    scenario_manager = _build_intersection_scenario()
+    assert scenario_manager.world is not None
+
 if __name__ == "__main__":
-    from opencda_marl.envs import CarlaSpectator
+    from opencda_marl._kernel.sensing import CarlaSpectator
     
-    scenario_manager = test_intersection_build()
+    scenario_manager = _build_intersection_scenario()
     
     world = scenario_manager.world
     spectator = CarlaSpectator(world=world, config={

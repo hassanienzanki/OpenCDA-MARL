@@ -1,0 +1,32 @@
+description: |-
+  Behavior-based agent for intersection scenario.
+  Intersection-safe behavior baseline focused on collision avoidance and
+  destination completion on the local OpenDRIVE map.
+
+agents:
+  agent_type: "behavior"
+
+  behavior:
+    debug: false
+    destination_reach_threshold: 3.0
+    ignore_traffic_light: false
+    overtake_allowed: false
+    route_end_policy: "terminate"
+
+    local_planner:
+      debug: false
+      debug_trajectory: false
+
+scenario:
+  simulation:
+    max_episodes: 1 # a baseline runs one episode unless the profile asks for more
+
+outputs:
+  evaluation:
+    mode: "disabled"
+  tensorboard:
+    enabled: false
+
+runtime:
+  reset:
+    enabled: false

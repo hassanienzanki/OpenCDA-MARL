@@ -10,9 +10,30 @@ here we have this class to enable different CAVs share the same model to
 # License: TDG-Attribution-NonCommercial-NoDistrib
 # Modified by: Lihao Guo <leolihao@arizona.edu>
 
+import os
+from pathlib import Path
+
 import cv2
 import torch
 import numpy as np
+
+
+def resolve_weights_path(name: str = 'yolov8m.pt') -> str:
+    """Absolute path where detector weights live (and download to).
+
+    Ultralytics downloads a bare filename into the current working
+    directory, which littered the repository root. Weights now live under
+    ``dependencies/models/`` (managed external binaries, next to the wheels
+    and SUMO installers); ``OPENCDA_ML_WEIGHTS_DIR`` overrides the
+    directory for machines that keep a shared weight store.
+    """
+    override = os.environ.get('OPENCDA_ML_WEIGHTS_DIR')
+    if override:
+        directory = Path(override)
+    else:
+        directory = Path(__file__).resolve().parents[3] / 'dependencies' / 'models'
+    directory.mkdir(parents=True, exist_ok=True)
+    return str(directory / name)
 
 
 class MLManager(object):
@@ -30,8 +51,9 @@ class MLManager(object):
         try:
             # Use YOLOv8 from ultralytics package (already in pixi.toml)
             from ultralytics import YOLO
-            # Load YOLOv8 medium model
-            self.object_detector = YOLO('yolov8m.pt')
+            # Load YOLOv8 medium model from dependencies/models (ultralytics
+            # downloads to this exact path when the file is absent).
+            self.object_detector = YOLO(resolve_weights_path('yolov8m.pt'))
             self.use_v8 = True
             print("Using YOLOv8 for object detection")
         except ImportError:

@@ -1,9 +1,8 @@
 '''
 Author       : AXIBA leolihao@arizona.edu
 Date         : 2025-08-03 10:54:59
-FilePath: \OpenCDA\opencda.py
+FilePath: /OpenCDA/opencda.py
 Description  : Script to run different scenarios.
-Copyright (c) 2025 by AXIBA (leolihao@arizona.edu), All Rights Reserved.
 '''
 # -*- coding: utf-8 -*-
 
@@ -17,9 +16,13 @@ import os
 import sys
 import traceback
 from omegaconf import OmegaConf
+
+os.environ.setdefault("LOGURU_LEVEL", "INFO")
+
 from loguru import logger
 
 from opencda import __version__
+from opencda_marl.utils import resolve_marl_config_paths
 
 
 def arg_parse():
@@ -27,11 +30,15 @@ def arg_parse():
     parser = argparse.ArgumentParser(description="OpenCDA scenario runner.")
     # add arguments to the parser
     parser.add_argument('-t', "--test_scenario", required=True, type=str,
-                        help='Define the name of the scenario you want to test. The given name must'
-                             'match one of the testing scripts(e.g. single_2lanefree_carla) in '
+                        help='Define the name of the scenario you want to test. The given name must '
+                             'match one of the testing scripts (e.g. single_2lanefree_carla) in '
                              'opencda/scenario_testing/ folder'
-                             ' as well as the corresponding yaml file in configs/opencda/ (standard mode)'
-                             ' or configs/marl/ (when using --marl flag).')
+                             ' as well as the corresponding yaml file in the bundled opencda family, opencda_marl/_bundled/configs/opencda/ (standard mode)'
+                             ' or one of the MARL config families under configs/ or an added'
+                             ' custom config root (when using --marl flag).'
+                             ' Use refs like pcma/intersection/smoke,'
+                             ' momarl/intersection/learn_path_pcmappo,'
+                             ' or sumo-marl/intersection/sac.')
     parser.add_argument("--record", action='store_true',
                         help='whether to record and save the simulation process to .log file')
     parser.add_argument("--apply_ml",
@@ -43,9 +50,9 @@ def arg_parse():
     parser.add_argument("--marl", action='store_true',
                         help='Enable MARL (Multi-Agent Reinforcement Learning) mode. '
                              'Uses MARLCoordinator instead of standard OpenCDA execution.')
-    parser.add_argument("--gui", action='store_true',
-                        help='Launch GUI debug mode for step-by-step control. '
-                             'Only valid with --marl flag.')
+    parser.add_argument("--marl-config-root", action='append', default=None,
+                        help='Additional MARL config root containing family directories '
+                             'such as marl/, pcma/, momarl/, or sumo-marl/. Can be repeated.')
     parser.add_argument("-d", "--debug", action='store_true',
                         help='Enable debug mode. This will print more detailed information.')
 
@@ -59,32 +66,40 @@ def load_configuration(opt):
     base_dir = os.path.dirname(os.path.realpath(__file__))
 
     if opt.marl:
-        # MARL mode: use configs/marl/ directory
-        config_dir = 'configs/marl'
-        default_yaml = os.path.join(base_dir, f'{config_dir}/default.yaml')
-        config_yaml = os.path.join(
-            base_dir, f'{config_dir}/{opt.test_scenario}.yaml')
-        error_msg = f"{config_dir}/{opt.test_scenario}.yaml not found!"
+        resolved = resolve_marl_config_paths(
+            base_dir,
+            opt.test_scenario,
+            custom_config_roots=getattr(opt, "marl_config_root", None),
+        )
+        default_yaml = str(resolved['default_yaml'])
+        scenario_base_yaml = str(resolved['scenario_base_yaml'])
+        config_yaml = str(resolved['scenario_yaml'])
     else:
-        # Standard OpenCDA mode: use configs/opencda/ directory
-        config_dir = 'configs/opencda'
-        default_yaml = os.path.join(base_dir, f'{config_dir}/default.yaml')
-        config_yaml = os.path.join(
-            base_dir, f'{config_dir}/{opt.test_scenario}.yaml')
-        error_msg = f"{config_dir}/{opt.test_scenario}.yaml not found!"
+        # Standard OpenCDA mode: the classic scenario family ships inside the
+        # package; a checkout-level configs/opencda/ overrides it when present.
+        config_dir = os.path.join(base_dir, 'configs', 'opencda')
+        if not os.path.isdir(config_dir):
+            from opencda_marl._bundled import BUNDLED_CONFIG_ROOT
+            config_dir = str(BUNDLED_CONFIG_ROOT / 'opencda')
+        default_yaml = os.path.join(config_dir, 'default.yaml')
+        config_yaml = os.path.join(config_dir, f'{opt.test_scenario}.yaml')
 
     # check if the yaml file for the specific testing scenario exists
     if not os.path.isfile(config_yaml):
-        sys.exit(error_msg)
+        sys.exit(f"{config_yaml} not found!")
 
     # load the default yaml file and the scenario yaml file as dictionaries
+    from opencda_marl.utils.config_locator import load_profile_with_includes
+
     default_dict = OmegaConf.load(default_yaml)
-    scene_dict = OmegaConf.load(config_yaml)
+    scene_dict = load_profile_with_includes(config_yaml)
 
     # merge the dictionaries - use smart merge for MARL to extend lists
     if opt.marl:
         from opencda_marl.utils import smart_merge
-        merged_config = smart_merge(default_dict, scene_dict)
+        scenario_base_dict = OmegaConf.load(scenario_base_yaml)
+        merged_config = smart_merge(default_dict, scenario_base_dict)
+        merged_config = smart_merge(merged_config, scene_dict)
     else:
         # Standard OpenCDA - keep original behavior
         merged_config = OmegaConf.merge(default_dict, scene_dict)
@@ -119,14 +134,21 @@ def run_marl_scenario(opt, config):
     logger.info("Running MARL-enhanced scenario...")
     coordinator = None
     try:
+        try:
+            import torch  # Preload torch to stabilize the local Windows DLL load order.
+            logger.debug(f"torch_preload: {torch.__version__}")
+        except OSError as exc:
+            raise RuntimeError(
+                "Failed to import the MARL runtime because the local Torch installation "
+                "could not load correctly. The current Windows experimental workaround "
+                "is KMP_DUPLICATE_LIB_OK=TRUE; if this still fails then the pixi Torch "
+                f"runtime itself is inconsistent. Low-level error: {exc}"
+            ) from exc
+
         # Import MARL components
         from opencda_marl import MARLCoordinator
 
         logger.info(f"Scenario: {opt.test_scenario}")
-
-        # Determine execution mode
-        if opt.gui:
-            logger.info("Enabling GUI mode...")
 
         # append all arguments from opt to config
         opt_dict = vars(opt)
@@ -140,11 +162,7 @@ def run_marl_scenario(opt, config):
         # Initialize components
         coordinator.initialize()
 
-        # Execute based on mode
-        if opt.gui:
-            coordinator.run_gui_mode()
-        else:
-            coordinator.run()
+        coordinator.run()
 
     except ImportError as e:
         print(f"Error: MARL components not available: {e}")

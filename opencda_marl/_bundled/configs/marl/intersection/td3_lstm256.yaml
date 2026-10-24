@@ -1,0 +1,82 @@
+# Kit profile generated from the v1.0.0 (RAL) configuration at commit 2d6f8d2c:
+# today's `td3` profile with the v1 `td3_simple_v3` network hyper-parameters.
+description: MATD3 on the 8-D state with a 256-wide LSTM and [512, 256] planner (RAL-era
+  td3_8d v3). Pairs with the bundled RAL checkpoint(s) in opencda_marl/_bundled/checkpoints/ral/
+  - see manifest.json.
+_extend_fields:
+- world.seed
+world:
+  seed: 5
+agents:
+  agent_type: marl
+  marl:
+    debug: false
+    max_speed: 65
+    emergency_param: 0.4
+    ignore_traffic_light: true
+    collision_time_ahead: 1.5
+    local_planner:
+      trajectory_update_freq: 5
+      debug: false
+      debug_trajectory: true
+MARL:
+  algorithm: matd3
+  action_space:
+    mode: speed_only
+  reward_profile: simple_progress_v1
+  state_dim: 8
+  action_dim: 1
+  matd3:
+    features:
+      rel_x: 1
+      rel_y: 1
+      speed: 1
+      heading_angle: 1
+      dist_to_intersection: 1
+      dist_to_front_vehicle: 1
+      lane_position: 1
+      waypoint_buffer: 1
+    conflict_encoder:
+      type: LSTM
+      input_size: 8
+      hidden_size: 256
+      num_layers: 1
+    motion_planner:
+      num_layers: 3
+      input_dim:
+      - 264
+      - 512
+      - 256
+      output_dim:
+      - 512
+      - 256
+      - 1
+    learning_rate_actor: 0.0001
+    learning_rate_critic: 0.001
+    tau: 0.005
+    discount: 0.99
+    policy_noise: 0.2
+    noise_clip: 0.5
+    exploration_noise: 0.3
+    noise_decay: 0.998
+    min_exploration_noise: 0.05
+    policy_freq: 2
+    batch_size: 256
+    memory_size: 100000
+    recency_ratio: 0.5
+    clear_episodes: 10
+    clear_keep_ratio: 0.9
+    use_per: true
+    max_action: 65.0
+    min_action: 10.0
+    warmup_steps: 1000
+    per_alpha: 0.6
+    per_beta: 0.4
+    per_beta_increment: 0.0001
+    per_epsilon: 1.0e-06
+  training:
+    training_mode: false
+    checkpoint_dir: checkpoints/
+    save_freq: 5
+    keep_checkpoints: 3
+    load_checkpoint: ral/td3_8d_300vph_v3  # bundled RAL baseline (checkpoints/ral/manifest.json)

@@ -358,6 +358,23 @@ class PerceptionManager:
         Open3d point cloud visualizer.
     """
 
+    # <OpenCDA-MARL>
+    # Per-step vehicle snapshot shared by every PerceptionManager (class
+    # level, because the step loop knows the world once while N managers
+    # each need it). ``{actor_id: record}`` with records exposing actor_id,
+    # type_id, location, transform, velocity, bounding_box. None = stock
+    # per-vehicle server queries.
+    _world_snapshot = None
+
+    @classmethod
+    def set_world_snapshot(cls, snapshot):
+        cls._world_snapshot = snapshot
+
+    @classmethod
+    def clear_world_snapshot(cls):
+        cls._world_snapshot = None
+    # </OpenCDA-MARL>
+
     def __init__(self, vehicle, config_yaml, cav_world,
                  data_dump=False, carla_world=None, infra_id=None):
         self.vehicle = vehicle
@@ -650,9 +667,35 @@ class PerceptionManager:
         """
         world = self.carla_world
 
-        vehicle_list = world.get_actors().filter("*vehicle*")
         # todo: hard coded
         thresh = 50 if not self.data_dump else 120
+
+        # <OpenCDA-MARL>
+        # Shared per-step vehicle snapshot: when the step loop publishes one
+        # (see ``set_world_snapshot``), every vehicle's detect() reads the
+        # whole world from it instead of issuing get_actors + a distance
+        # query per vehicle + ~6 queries per obstacle. At 30 vehicles this
+        # was ~2,500 server round trips per step; now zero from this path.
+        # Only the plain (no lidar, no data-dump) mode is served from the
+        # snapshot; sensor-projection modes keep the stock path.
+        snapshot = PerceptionManager._world_snapshot
+        if snapshot is not None and not self.lidar and not self.data_dump:
+            ego = snapshot.get(self.id)
+            if ego is not None:
+                ex, ey = ego.location.x, ego.location.y
+                nearby = []
+                for rec in snapshot.values():
+                    if rec.actor_id == self.id:
+                        continue
+                    dx = rec.location.x - ex
+                    dy = rec.location.y - ey
+                    if (dx * dx + dy * dy) ** 0.5 < thresh:
+                        nearby.append(ObstacleVehicle.from_snapshot(rec))
+                objects.update({'vehicles': nearby})
+                return objects
+        # </OpenCDA-MARL>
+
+        vehicle_list = world.get_actors().filter("*vehicle*")
 
         vehicle_list = [v for v in vehicle_list if self.dist(v) < thresh and
                         v.id != self.id]
@@ -926,26 +969,38 @@ class PerceptionManager:
         """
         Destroy sensors.
         """
+        # <OpenCDA-MARL>
+        # Hardened teardown: None-safe sensor access, per-sensor isolation,
+        # and reference nulling so a repeated destroy() (or one racing a
+        # parent-vehicle destroy that already killed the children) cannot
+        # raise and abort the caller's teardown sequence.
+        def _stop_and_destroy(wrapper, name):
+            sensor = getattr(wrapper, 'sensor', None)
+            try:
+                if sensor is not None and sensor.is_alive:
+                    sensor.stop()
+                    sensor.destroy()
+            except Exception as exc:
+                print(f"PerceptionManager.destroy: {name} teardown failed: {exc}")
+
         if self.rgb_camera:
-            for rgb_camera in self.rgb_camera:
-                if hasattr(rgb_camera, 'sensor') and rgb_camera.sensor.is_alive:
-                    rgb_camera.sensor.stop()
-                    rgb_camera.sensor.destroy()
+            for index, rgb_camera in enumerate(self.rgb_camera):
+                _stop_and_destroy(rgb_camera, f'rgb_camera[{index}]')
+            self.rgb_camera = None
 
         if self.lidar:
-            if hasattr(self.lidar, 'sensor') and self.lidar.sensor.is_alive:
-                self.lidar.sensor.stop()
-                self.lidar.sensor.destroy()
+            _stop_and_destroy(self.lidar, 'lidar')
+            self.lidar = None
 
         if self.camera_visualize:
             cv2.destroyAllWindows()
 
-        # <OpenCDA-MARL> Only destroy if visualizer was actually initialized
+        # Only destroy if visualizer was actually initialized
         # This prevents errors when lazy initialization never occurred
         if self.lidar_visualize and self.o3d_vis_initialized and self.o3d_vis:
             self.o3d_vis.destroy_window()
 
-        if self.data_dump:
-            if hasattr(self, 'semantic_lidar') and hasattr(self.semantic_lidar, 'sensor') and self.semantic_lidar.sensor.is_alive:
-                self.semantic_lidar.sensor.stop()
-                self.semantic_lidar.sensor.destroy()
+        if self.data_dump and hasattr(self, 'semantic_lidar'):
+            _stop_and_destroy(self.semantic_lidar, 'semantic_lidar')
+            self.semantic_lidar = None
+        # </OpenCDA-MARL>

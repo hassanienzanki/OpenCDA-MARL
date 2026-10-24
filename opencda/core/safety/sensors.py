@@ -56,6 +56,18 @@ class CollisionSensor(object):
         intensity = math.sqrt(impulse.x ** 2 + impulse.y ** 2 + impulse.z ** 2)
         self._history.append((event.frame, intensity))
         if intensity > self._threshold:
+            # <OpenCDA-MARL>
+            # Preserve the actual contact partner before publishing the flag.
+            # Nearest-neighbour reconstruction can confuse road contacts and
+            # adjacent vehicles after the collided actors have been removed.
+            other = getattr(event, 'other_actor', None)
+            self.last_collision_details = {
+                'frame': int(event.frame),
+                'other_actor_id': int(getattr(other, 'id', 0) or 0),
+                'other_actor_type': str(getattr(other, 'type_id', '') or ''),
+                'impulse': float(intensity),
+            }
+            # </OpenCDA-MARL>
             self.collided = True
             self.collided_frame = event.frame
 

@@ -1,0 +1,87 @@
+description: |-
+  One-minute CARLA smoke run for the cooperative-first vector reward contract.
+  This is the single quick verification config for the PCMA family and is
+  intentionally quiet: no evaluation outputs, no TensorBoard, no checkpoints.
+
+world:
+  seed: 3
+
+agents:
+  agent_type: "marl"
+
+  marl:
+    debug: false
+    max_speed: 45
+    emergency_param: 0.4
+    ignore_traffic_light: true
+    collision_time_ahead: 1.5
+
+    local_planner:
+      trajectory_update_freq: 5
+      lookahead_steps: 3
+      debug: false
+      debug_trajectory: false
+
+scenario:
+  simulation:
+    # 60 seconds of simulated time at 20 FPS / 0.05 s fixed delta.
+    max_steps: 1200
+    max_episodes: 1
+
+outputs:
+  evaluation:
+    mode: "disabled"
+  tensorboard:
+    enabled: false
+
+runtime:
+  reset:
+    enabled: false
+
+MARL:
+  algorithm: "masac"
+  reward_profile: "cooperative_intersection_v1"
+  state_dim: 8
+  action_dim: 1
+  action_space:
+    mode: speed_only
+
+  masac:
+    features:
+      rel_x: 1
+      rel_y: 1
+      speed: 1
+      heading_angle: 1
+      dist_to_intersection: 1
+      dist_to_front_vehicle: 1
+      lane_position: 1
+      waypoint_buffer: 1
+
+    lstm_hidden_size: 128
+    lstm_num_layers: 1
+    actor_hidden_dims: [256, 256]
+    critic_hidden_dims: [256, 256]
+    learning_rate_actor: 3e-4
+    learning_rate_critic: 3e-4
+    learning_rate_alpha: 3e-4
+    tau: 0.005
+    gamma: 0.99
+    auto_entropy_tuning: true
+    target_entropy: -1.0
+    init_alpha: 0.2
+    log_std_min: -20
+    log_std_max: 2
+    memory_size: 5000
+    batch_size: 64
+    warmup_steps: 100
+    max_action: 45.0
+    min_action: 0.0
+
+  training:
+    training_mode: true
+    save_checkpoints: false
+    checkpoint_dir: "artifacts/checkpoints/pcma_smoke"
+    save_freq: 100
+    keep_checkpoints: 1
+    load_checkpoint: ""
+

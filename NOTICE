@@ -1,0 +1,16 @@
+OpenCDA-MARL
+Copyright (c) 2025-2026 Lihao Guo and the Radar Lab, University of Arizona
+
+The code written for OpenCDA-MARL (the opencda_marl package, the scripts,
+tests, configuration profiles and documentation in this repository) is
+licensed under the Apache License, Version 2.0; see LICENSE.
+
+This repository also contains material that is not covered by that licence:
+the OpenCDA core from the UCLA Mobility Lab and files derived from it, code
+and map data from the CARLA project, and other third-party files. Each is
+listed with its terms, and with the paths it occupies, in
+THIRD_PARTY_NOTICES.md.
+
+A running installation includes the OpenCDA core, so use of the complete system
+is limited by UCLA's licence to academic and nonprofit research. That does not
+narrow what the Apache License allows for the OpenCDA-MARL files themselves.

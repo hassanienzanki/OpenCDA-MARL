@@ -1,0 +1,120 @@
+{
+  "kit": "ral_baselines",
+  "created": "2026-09-01T23:21:00Z",
+  "source_commit": "2d6f8d2c",
+  "description": "Baseline learners of the OpenCDA-MARL framework paper (RAL): DQN, MAPPO, SAC and TD3 variants trained at the signal-free intersection on the bundled traffic_<vph>vph recordings. Eval-only weights (optimizer state stripped); load with MARL.training.load_checkpoint: ral/<run>.",
+  "usage": {
+    "evaluate": {
+      "MARL.training.training_mode": false,
+      "MARL.training.load_checkpoint": "ral/<run>"
+    },
+    "fine_tune": {
+      "MARL.training.training_mode": true,
+      "MARL.training.load_checkpoint": "ral/<run>"
+    },
+    "profile": "run with the profile listed per entry, e.g. -t marl/intersection/td3_43d --marl"
+  },
+  "entries": [
+    {
+      "run": "dqn_300vph",
+      "algorithm": "dqn",
+      "profile": "marl/intersection/dqn",
+      "traffic_vph": 300,
+      "recording": "traffic_300vph.json",
+      "checkpoint": "checkpoints/ral/dqn_300vph/checkpoint.pth",
+      "bytes": 326581,
+      "sha256": "5d99f4ea2a04419f4442c5dcc3c3527619ff51acdae3915e5d471eec455f0236",
+      "optimizer_state": "stripped",
+      "source": "2d6f8d2c:checkpoints/dqn_300vph/latest_checkpoint.pth"
+    },
+    {
+      "run": "mappo_300vph",
+      "algorithm": "mappo",
+      "profile": "marl/intersection/mappo",
+      "traffic_vph": 300,
+      "recording": "traffic_300vph.json",
+      "checkpoint": "checkpoints/ral/mappo_300vph/checkpoint.pth",
+      "bytes": 1031285,
+      "sha256": "f1e5f7628c9d5cf1d67ba65ae6a0a365a07c5699e4eb2e4076105fb3c222fa63",
+      "optimizer_state": "stripped",
+      "source": "2d6f8d2c:checkpoints/mappo_300vph/latest_checkpoint.pth"
+    },
+    {
+      "run": "mappo_065_300vph",
+      "algorithm": "mappo",
+      "profile": "marl/intersection/mappo_h128",
+      "traffic_vph": 300,
+      "recording": "traffic_300vph.json",
+      "checkpoint": "checkpoints/ral/mappo_065_300vph/checkpoint.pth",
+      "bytes": 557109,
+      "sha256": "a265289a7bf53af3b6df7b9fa79edad2449830fa88c03ac2f8d890ed5e7f193f",
+      "optimizer_state": "stripped",
+      "source": "2d6f8d2c:checkpoints/mappo_065_300vph/latest_checkpoint.pth"
+    },
+    {
+      "run": "sac_300vph",
+      "algorithm": "masac",
+      "profile": "marl/intersection/sac",
+      "traffic_vph": 300,
+      "recording": "traffic_300vph.json",
+      "checkpoint": "checkpoints/ral/sac_300vph/checkpoint.pth",
+      "bytes": 2380661,
+      "sha256": "ed9597d7b6ef985068f005a60a037b1941218cc1a420691df49925698b8d7081",
+      "optimizer_state": "stripped",
+      "source": "2d6f8d2c:checkpoints/sac_300vph/latest_checkpoint.pth"
+    },
+    {
+      "run": "td3_8d_300vph_v2",
+      "algorithm": "matd3",
+      "profile": "marl/intersection/td3",
+      "traffic_vph": 300,
+      "recording": "traffic_300vph.json",
+      "checkpoint": "checkpoints/ral/td3_8d_300vph_v2/checkpoint.pth",
+      "bytes": 1992117,
+      "sha256": "b3452473a53d7a88795d44cc6efd7fdf853d7ff5a948781fa33606ad9375198e",
+      "optimizer_state": "stripped",
+      "source": "2d6f8d2c:checkpoints/td3_8d_300vph_v2/latest_checkpoint.pth"
+    },
+    {
+      "run": "td3_8d_300vph_v3",
+      "algorithm": "matd3",
+      "profile": "marl/intersection/td3_lstm256",
+      "traffic_vph": 300,
+      "recording": "traffic_300vph.json",
+      "checkpoint": "checkpoints/ral/td3_8d_300vph_v3/checkpoint.pth",
+      "bytes": 7585141,
+      "sha256": "724209ffbe47dbb97a141ba2b0e4981ae3d021f865980db6ce65cc3f8eefb550",
+      "optimizer_state": "stripped",
+      "source": "2d6f8d2c:checkpoints/td3_8d_300vph_v3/latest_checkpoint.pth"
+    },
+    {
+      "run": "td3_43d_300vph",
+      "algorithm": "matd3",
+      "profile": "marl/intersection/td3_43d",
+      "traffic_vph": 300,
+      "recording": "traffic_300vph.json",
+      "checkpoint": "checkpoints/ral/td3_43d_300vph/checkpoint.pth",
+      "bytes": 8160949,
+      "sha256": "845f438a13a7d33e2560389e16308b5eacda194b1bf986b9e5943622a36c6818",
+      "optimizer_state": "stripped",
+      "source": "2d6f8d2c:checkpoints/td3_43d_300vph/latest_checkpoint.pth"
+    }
+  ],
+  "not_distributed": {
+    "note": "The paper's two 1024-wide TD3 baselines on the 44-D state are not distributed (49.7 MB each). Their configuration ships as the marl/intersection/td3_44d profile, so they can be retrained; the original weights live in this repository's history.",
+    "runs": [
+      {
+        "run": "td3_44d_300vph",
+        "profile": "marl/intersection/td3_44d",
+        "traffic_vph": 300,
+        "recover_from": "2d6f8d2c:checkpoints/td3_44d_300vph/latest_checkpoint.pth"
+      },
+      {
+        "run": "td3_44d_400vph",
+        "profile": "marl/intersection/td3_44d",
+        "traffic_vph": 400,
+        "recover_from": "2d6f8d2c:checkpoints/td3_44d_400vph/latest_checkpoint.pth"
+      }
+    ]
+  }
+}

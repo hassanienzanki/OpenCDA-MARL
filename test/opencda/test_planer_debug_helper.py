@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Unit test for Localization DebugHelper.
+Unit test for Platoon DebugHelper.
 """
 # Author: Runsheng Xu <rxx3386@ucla.edu>
 # License: MIT

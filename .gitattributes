@@ -1,0 +1,5 @@
+# Deterministic replay data is byte-significant: the recordings under
+# `opencda_marl/_bundled/recordings/` are the evaluation ground truth.
+# Without this rule git renormalises line endings on checkout, and git
+# rewriting a ground-truth file is exactly what must never happen.
+opencda_marl/_bundled/recordings/*.json  -text

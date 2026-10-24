@@ -94,7 +94,9 @@ class PlatooningBehaviorAgent(BehaviorAgent):
         self.warm_up_speed = platoon_yaml['warm_up_speed']
 
         # used to calculate performance
-        self.debug_helper = PlatoonDebugHelper(self.vehicle.id)
+        # <OpenCDA-MARL> world passed for the route-trace debug hook
+        self.debug_helper = PlatoonDebugHelper(self.vehicle.id, self._world)
+        # </OpenCDA-MARL>
         self.time_gap = 100.0
         self.dist_gap = 100.0
 

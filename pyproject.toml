@@ -1,0 +1,103 @@
+# The engine package: opencda_marl builds as a wheel so the framework can be
+# used as an RL-environment library without installing the whole repository.
+# Pixi (pixi.toml) remains the environment of record for development; this
+# manifest exists for packaging (`pixi run wheel`: a clean build, every member
+# checked against the source tree) and the editable install pixi performs.
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opencda-marl"
+description = "Cooperative multi-agent RL engine for autonomous driving on CARLA/SUMO: lifecycle, environments, observation/action delivery, registry — algorithms plug in as packages"
+requires-python = ">=3.10"
+# The wheel carries three licences: Apache-2.0 for the OpenCDA-MARL code, MIT for the CARLA
+# files, and UCLA's Academic Software License for the vendored OpenCDA core. The CC-BY map
+# data cannot be written here (see THIRD_PARTY_NOTICES.md).
+license = "Apache-2.0 AND MIT AND LicenseRef-UCLA-Academic-Software-License"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "opencda/LICENSE"]
+authors = [{ name = "Lihao Guo", email = "leolihao@arizona.edu" }]
+dependencies = [
+    # What every run imports, on either backend. Measured rather than
+    # guessed: test/basic/test_wheel_contents.py walks the engine's imports
+    # and fails if one is missing from here or from an extra below.
+    "numpy",
+    "torch",
+    "loguru",
+    "omegaconf",
+    "pyyaml",
+    "h5py",
+    "lxml",
+    # The SUMO backend is the one that runs with no simulator install, so
+    # it ships by default: the package bundles the SUMO binaries and its
+    # traci/sumolib clients (under sumo/tools, which the engine's SUMO
+    # resolver puts on sys.path). The faster libsumo binding is optional;
+    # without it the engine falls back to traci with a warning.
+    "eclipse-sumo",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+# The CARLA backend's libraries: what the vendored core's planning,
+# perception and map modules import. They serve CARLA scenarios run from a
+# repository checkout (`python opencda.py -t <ref> --marl`), which reads the
+# scenario maps from the working tree; the wheel's own CLI and env port
+# drive SUMO only. `carla` itself is deliberately absent -- the Python API is
+# version-locked to the simulator you install and is not on PyPI for every
+# interpreter -- so it comes from your CARLA distribution (dependencies/whl/
+# holds the builds this repository was verified with). The SUMO path guards
+# its `carla` import and runs without it.
+carla = ["networkx", "scipy", "shapely", "matplotlib", "opencv-python", "open3d"]
+# The external RL ports (opencda_marl.envs): PettingZoo / Gymnasium.
+ports = ["gymnasium", "pettingzoo"]
+all = ["opencda-marl[carla,ports]"]
+
+# The wheel registers its own baselines through the same entry-point door
+# any external algorithm package uses — the engine never imports a learner.
+[project.entry-points."opencda_marl.plugins"]
+builtin = "opencda_marl.builtin.algorithms"
+
+[project.scripts]
+opencda-marl = "opencda_marl.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "opencda_marl.__version__" }
+
+[tool.setuptools.packages.find]
+# The vendored OpenCDA core ships with the engine: nine engine modules
+# import it (the CARLA agent stack, the scenario manager, the adapters), so
+# a wheel without it could not even import them.
+include = ["opencda_marl*", "opencda*"]
+
+[tool.setuptools.package-data]
+opencda_marl = [
+    "telemetry/static/*",
+    # The config families and recordings are the package's own data; a pip
+    # install runs every shipped SUMO scenario without the repository
+    # (CARLA scenarios read their maps from a checkout):
+    "_bundled/configs/**/*.yaml",
+    "_bundled/configs/**/*.md",
+    "_bundled/recordings/*.json",
+    # The bundled baseline checkpoints (eval-only weights, manifest):
+    "_bundled/checkpoints/**/*.pth",
+    "_bundled/checkpoints/**/*.json",
+    "_bundled/checkpoints/**/*.md",
+    "_bundled/checkpoints/**/SHA256SUMS",
+    "assets/intersection/*.sumocfg",
+    "assets/intersection/*.net.xml",
+    "assets/intersection/*.rou.xml",
+    "assets/intersection/*.con.xml",
+]
+# The vendored core's data: the blueprint metadata two shipped profiles
+# read, and the maps its own co-simulation scenarios use (those scenarios,
+# like every CARLA run, start from a repository checkout).
+# `assets/2lane_freeway_complete/` is deliberately omitted -- it is a 19 MB
+# Unreal map package that has to be imported into the simulator anyway, so
+# shipping it would triple the wheel to no purpose.
+opencda = [
+    "assets/blueprint_meta/*.json",
+    "assets/2lane_freeway_simplified/*",
+    "assets/Town05/*",
+    "assets/Town06/*",
+    "scenario_testing/scenarios/*.xml",
+]

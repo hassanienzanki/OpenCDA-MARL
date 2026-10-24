@@ -2,46 +2,74 @@
 authors = ["AXIBA <leolihao@arizona.edu>"]
 channels = ["conda-forge", "pytorch", "nvidia"]
 name = "OpenCDA"
-platforms = ["win-64","linux-64"]
-version = "0.1.0-alpha"
-
-[system-requirements]
-cuda = "12.8"
+platforms = [{ platform = "win-64", cuda = "12.8" }, { platform = "linux-64", cuda = "12.8", glibc = "2.31" }]
+version = "2.1.0"
 
 [activation.env]
-SUMO_HOME = "D:\\IDKs\\Eclipse\\Sumo"
+CARLA_VERSION = "0.9.16"
+LOGURU_LEVEL = "INFO"
 
 [tasks]
 start = "python opencda.py"
 
-# TensorBoard for training visualization
-fix-tensorboard = "python scripts/fix_tensorboard_open3d.py"  # Fix Open3D plugin issue
-tensorboard = "tensorboard --logdir=runs"
-tb = "tensorboard --logdir=runs"  # Short alias
+# TensorBoard for training visualization. Event files land in a per-family
+# subdirectory of the artifacts root (outputs.tensorboard.dir); TensorBoard
+# scans the whole root recursively, so every family's runs appear.
+tensorboard = "tensorboard --logdir=artifacts"
+# Training monitor: the queryable metrics store (SQLite per run) in a browser.
+monitor = "python -m opencda_marl.telemetry.monitor --root artifacts"
+# One-command verification battery (add --full for a CARLA episode):
+verify = "python scripts/verify.py"
+# The engine wheel, from a clean build tree, every member checked against the
+# source (a stale build/ can ship files that no longer exist):
+wheel = "python scripts/build_wheel.py"
+monitor-list = "python -m opencda_marl.telemetry.monitor list --root artifacts"
+tb = "tensorboard --logdir=artifacts"
 
-# MARL tests
-marl-intersection-build = "python test/marl/test_intersection_build.py"
+# Docker-assisted Linux server workflows
+carla-docker-pull = "python scripts/docker_carla.py pull"
+carla-docker-start = "python scripts/docker_carla.py start"
+carla-docker-stop = "python scripts/docker_carla.py stop"
+carla-docker-status = "python scripts/docker_carla.py status"
+carla-docker-logs = "python scripts/docker_carla.py logs"
+train-docker-build = "python scripts/docker_train.py build"
+train-docker-shell = "python scripts/docker_train.py shell"
+train-docker-run = "python scripts/docker_train.py run"
 
 # MARL integrated with opencda.py
-marl-quick-test = "python opencda.py -t rule_based --marl"
-marl-quick-test-gui = "python opencda.py -t rule_based --marl --gui"
-marl-eval-agents = "python opencda_marl/envs/cross_agent_evaluator.py"
+marl-quick-test = "python opencda.py -t marl/intersection/rule_based --marl"
 
+# Debug tasks
+marl-intersection-build = "python test/marl/test_intersection_build.py"
+traffic-inspect = "python scripts/inspect_traffic_manager.py --scenario marl/intersection/vanilla --hold-open-seconds 10"
+traffic-review = "python scripts/inspect_traffic_manager.py --scenario marl/intersection/vanilla --playback --event-hold-seconds 3"
+traffic-route-review = "python scripts/inspect_traffic_manager.py --scenario marl/intersection/vanilla --route-playback --event-hold-seconds 3"
 
-# openCDA quick test
+# OpenCDA tasks
 cda-quick-test = "python opencda.py -t single_2lanefree_carla"
 cda-platoon-2lanefree = "python opencda.py -t platoon_joining_2lanefree_carla --apply_ml"
 cda-single-town06 = "python opencda.py -t single_town06_carla --apply_ml"
-cda-platoon-town06 = "python opencda.py -t platoon_town06_carla --apply_ml"
+cda-platoon-town06 = "python opencda.py -t platoon_joining_town06_carla --apply_ml"
+
+# CARLA checkpoint evaluation
+carla-checkpoint-eval = "python scripts/run_carla_checkpoint_eval.py"
+
+# Experiment matrix (see docs/run-experiments.md). Extra arguments are
+# appended: `pixi run matrix --conditions ... --regimes ... --seeds ...`.
+matrix = "python scripts/experiments/launch_matrix.py"
+matrix-eval = "python scripts/experiments/launch_eval_matrix.py"
+matrix-analyze = "python scripts/experiments/analyze_matrix_results.py"
 
 [feature.docs.dependencies]
 mkdocs = ">=1.6.0,<2"
 mkdocs-material = ">=9.5.0,<10"
+# conda-level bound: mkdocs-material pulls pymdown-extensions from conda-forge,
+# and a PyPI-only bound cannot stop the conda solver from picking 11.x.
+pymdown-extensions = ">=10.12.0,<11"
 
 [feature.docs.pypi-dependencies]
 mkdocs-mermaid2-plugin = ">=1.2.1, <2"
 mkdocs-git-revision-date-localized-plugin = ">=1.4.7, <2"
-pymdown-extensions = ">=10.12.0,<11"
 click = "*"
 
 [feature.docs.tasks]
@@ -55,7 +83,6 @@ docs = { features = ["docs"], solve-group = "default" }
 
 [dependencies]
 pip = ">=25.2,<26"
-python = "3.10.*"
 matplotlib = ">=3.10.5,<4"
 networkx = ">=3.4.2,<4"
 numpy = ">=2.2.6,<3"
@@ -72,27 +99,86 @@ seaborn = ">=0.13.2,<0.14"
 lxml = ">=6.0.0,<7"
 shapely = ">=2.1.1,<3"
 omegaconf = ">=2.3.0,<3"
-ultralytics = ">=8.3.176,<9"
+# <8.4: later conda builds depend on ultralytics-thop -> conda pytorch, which
+# would shadow the PyPI CUDA torch wheels declared per platform below.
+ultralytics = ">=8.3.176,<8.4"
 gitpython = ">=3.1.30,<4"
 loguru = ">=0.7.3,<0.8"
 pyyaml = ">=6.0.2,<7"
 h5py = ">=3.14.0,<4"
-pyside6 = ">=6.9.1,<7"
 typing_extensions = ">=4.15.0,<5"
 tensorboard = ">=2.20.0,<3"
 pyclean = ">=3.4.0,<4"
+pytest = ">=8,<9"
+pettingzoo = ">=1.25.0,<2"
+gymnasium = ">=1.3.0,<2"
 
 [pypi-dependencies]
+# The engine (baselines included), installed editable so its entry point
+# registers the learners exactly like an external package would.
+opencda-marl = { path = ".", editable = true }
 gitpython = ">=3.1.30"
+# eclipse-sumo bundles the SUMO traffic simulator binary as a pip wheel so the
+# install is user-mode (no sudo / no system apt) on any platform. Pixi pulls
+# the wheel into the env. The engine resolves SUMO from that package itself
+# (opencda_marl/_kernel/traffic/_sumo_home.py) and only falls back to
+# SUMO_HOME when the package is absent; the win-64 activation below points
+# SUMO_HOME at the same package directory for tools that read the variable.
+#
+# `libsumo` (the shared-memory C++ binding) is declared here for every
+# platform: 1.27.1 ships Windows wheels too. Without it the engine falls back
+# to TCP-based traci with one warning line (opencda_marl/_kernel/traffic/_sumo_lib.py)
+# and a SUMO step runs markedly slower, so keep the package in the
+# environment.
+eclipse-sumo = ">=1.24.0, <2"
 sumolib = ">=1.24.0, <2"
+traci = ">=1.24.0, <2"
+libsumo = "==1.27.1"
 
+[target.win-64.dependencies]
+python = "3.12.*"
+
+[target.win-64.activation.env]
+# The env's own eclipse-sumo package (pixi expands %CONDA_PREFIX% on Windows),
+# so SUMO_HOME always names the SUMO the engine actually runs.
+SUMO_HOME = "%CONDA_PREFIX%\\Lib\\site-packages\\sumo"
+# The example CARLA location from docs/installation.md. Activation overrides
+# variables set outside pixi, so edit these three lines when your simulator
+# lives elsewhere (the matrix launcher also takes --carla-root / --carla-bin).
+CARLA_ROOT = "D:\\Applications\\CARLA_0.9.16"
+CARLA_HOME = "D:\\Applications\\CARLA_0.9.16"
+CARLA_BIN = "D:\\Applications\\CARLA_0.9.16\\CarlaUE4.exe"
+# Python 3.10 fallback remains on CARLA 0.9.15 for old Windows diagnostics.
+OPENCDA_WINDOWS_BACKUP_MANIFEST = "dependencies/pixi/pixi_win_py310_carla0915_backup.toml"
+OPENCDA_WINDOWS_BACKUP_PYTHON = "3.10"
+# Temporary Windows workaround for duplicate OpenMP runtimes in the current
+# experimental Torch stack. Keep this under review and remove once the env is clean.
+KMP_DUPLICATE_LIB_OK = "TRUE"
+
+[target.linux-64.dependencies]
+python = "3.10.*"
+
+[target.linux-64.activation.env]
+SUMO_HOME = "/usr/share/sumo"
+CARLA_ROOT = "/opt/CARLA_0.9.16"
+CARLA_HOME = "/opt/CARLA_0.9.16"
+CARLA_BIN = "/opt/CARLA_0.9.16/CarlaUE4.sh"
+SDL_VIDEODRIVER = "offscreen"
 
 [target.win-64.pypi-dependencies]
 torch = { index = "https://download.pytorch.org/whl/nightly/cu128" }
 torchvision = { index = "https://download.pytorch.org/whl/nightly/cu128" }
-carla = { path = "./dependencies/whl/carla-0.9.15-cp310-cp310-win_amd64.whl" }
+# Default Windows root manifest now uses CARLA 0.9.16 with Python 3.12 for ongoing experiments.
+# For a Windows Python 3.10 fallback, use %OPENCDA_WINDOWS_BACKUP_MANIFEST%.
+# For other Windows variants, see dependencies/pixi/pixi_win_py312_*.toml.
+carla = { path = "./dependencies/whl/carla-0.9.16-cp312-cp312-win_amd64.whl" }
 
 [target.linux-64.pypi-dependencies]
 torch = { index = "https://download.pytorch.org/whl/cu130" }
 torchvision = { index = "https://download.pytorch.org/whl/cu130" }
-carla = { path = "./dependencies/whl/carla-0.9.15-cp310-cp310-manylinux_2_27_x86_64.whl" }
+carla = { path = "./dependencies/whl/carla-0.9.16-cp310-cp310-manylinux_2_31_x86_64.whl" }
+# libsumo is the shared-memory C++ binding for SUMO; the default binding
+# (opencda_marl/_kernel/traffic/_sumo_lib.py) tries it first and falls back to traci
+# with a warning. Declared in [pypi-dependencies] for every platform; this
+# target-scoped range only keeps older Linux solves valid.
+libsumo = ">=1.24.0, <2"

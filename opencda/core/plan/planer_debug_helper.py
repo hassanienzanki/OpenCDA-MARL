@@ -33,7 +33,7 @@ class PlanDebugHelper(object):
 
     """
 
-    def __init__(self, actor_id, world):
+    def __init__(self, actor_id, world=None):
         self.actor_id = actor_id
         self.speed_list = [[]]
         self.acc_list = [[]]

@@ -11,15 +11,30 @@ import unittest
 
 import cv2
 import numpy as np
+import pytest
 
 # temporary solution for relative imports in case opencda is not installed
 # if opencda is installed, no need to use the following line
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
-from opencda.customize.ml_libs.ml_manager import MLManager
+from opencda.customize.ml_libs.ml_manager import MLManager, resolve_weights_path
 
 
+def _weights_available() -> bool:
+    """True when yolov8m.pt is already at its managed location.
+
+    MLManager() resolves the weight path via resolve_weights_path()
+    (dependencies/models/ or OPENCDA_ML_WEIGHTS_DIR); ultralytics would
+    download ~52 MB there when the file is absent. A unit test must not
+    depend on the network, so this suite runs only against weights that
+    are already present.
+    """
+    return os.path.exists(resolve_weights_path('yolov8m.pt'))
+
+
+@pytest.mark.skipif(not _weights_available(),
+                    reason="yolov8m.pt not present; refusing to download it in a unit test")
 class TestMlManager(unittest.TestCase):
     def setUp(self):
         current_path = os.path.dirname(os.path.realpath(__file__))

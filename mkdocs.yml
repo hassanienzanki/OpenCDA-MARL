@@ -79,7 +79,10 @@ markdown_extensions:
       custom_fences:
         - name: mermaid
           class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
+          # mermaid2's own formatter emits <div class="mermaid"> with raw
+          # (unescaped) source; fence_code_format emits <pre><code> with
+          # HTML-escaped arrows, which the plugin's loader fails to render.
+          format: !!python/name:mermaid2.fence_mermaid
   - pymdownx.tabbed:
       alternate_style: true
       combine_header_slug: true
@@ -98,58 +101,40 @@ plugins:
   - mermaid2
 
 nav:
-  - Home:
-      - OpenCDA-MARL: index.md
-      - Getting Started:
-          - Installation: installation.md
-          - Quick Start: quick-start.md
-          - FAQ: faq.md
-  - MARL Framework:
+  - Home: index.md
+  - Getting Started:
+      - Installation: installation.md
+      - Quick Start: quick-start.md
+      - CARLA Version Support: carla-version-support.md
+  - Guide:
       - Architecture: marl/architecture.md
-      - SUMO Training: marl/sumo_training.md
-      #- Algorithms: marl/algorithms.md
-      #- Training: marl/training.md
-      - Updates: marl/updates.md
-      - Changelog-MARL:
-          - v1.0.0: marl/changelog/v1.0.0.md
+      - Run Experiments: run-experiments.md
+      - Training Throughput: marl/throughput.md
+      - Customize:
+          - Replace a Component: marl/replace_component.md
+          - Add an Algorithm: marl/custom_algorithms.md
+          - A Planner: marl/custom_planner.md
+          - An Agent Type: marl/custom_agent.md
+          - An Intent Provider: marl/custom_intent_provider.md
+          - An Observation Extractor: marl/custom_observation_extractor.md
+          - A Reward Calculator: marl/custom_reward_calculator.md
+          - Profile Tables: marl/custom_profiles.md
+  - Reference:
+      - PCMA Learners: marl/pcma.md
+      - OpenCDA Patch Ledger: opencda/marl_patches.md
       - Contributing: contributing.md
-  - OpenCDA Integration:
-      - Core Components: opencda/core.md
-      - Changelog-MARL:
-          - Overview: opencda/changelog/index.md
-          - Architecture Changes: opencda/changelog/architecture_changes.md
-          - API Changes: opencda/changelog/api_changes.md
-          - Platform Changes: opencda/changelog/platform_changes.md
-          - Config Changes: opencda/changelog/config_changes.md
-          - Breaking Changes: opencda/changelog/breaking_changes.md
-          - Migration & Docs: opencda/changelog/migration_and_docs.md
-      - Integration:
-          - Scenario Testing: opencda/scenarios.md
-          - Traffic Generation: opencda/traffic_generation.md
-          - YAML Configuration: opencda/yaml_define.md
-  - API Reference:
-      - OpenCDA Core:
-          - Overview: api/opencda/overview.md
-          - CavWorld: api/opencda/cav_world.md
-          - PerceptionManager: api/opencda/perception_manager.md
-          - VehicleManager: api/opencda/vehicle_manager.md
-          - ScenarioManager: api/opencda/scenario_manager.md
-          - LocalizationManager: api/opencda/localization_manager.md
-          - BehaviorAgent: api/opencda/behavior_agent.md
-          - V2XManager: api/opencda/v2x_manager.md
-      - MARL Extension:
-          - Overview: api/opencda-marl/overview.md
-          - Coordinator: api/opencda-marl/coordinator.md
-          - Scenario: api/opencda-marl/scenario.md
-          - Vehicle Adapter: api/opencda-marl/adapters/vehicle_adapter.md
-          - Core Components:
-              - Agent Manager: api/opencda-marl/agent_manager.md
-              - Map Manager: api/opencda-marl/map_manager.md
-          - Environment Interface: api/opencda-marl/environment.md
-          - Traffic Configuration: api/opencda-marl/traffic_config.md
-          - Benchmark System: api/opencda-marl/benchmark.md
-          - Training Infrastructure: api/opencda-marl/training.md
-  - About Us: about.md
+      - Changelog:
+          - v2.1.0: marl/changelog/v2.1.0.md
+          - v1.0.0: marl/changelog/v1.0.0.md
+  - About: about.md
+
+# The agent docs stay built at their URLs (README and the agent portal link
+# them) but out of the human nav: agents read them from the checkout via
+# AGENTS.md, not from the site.
+not_in_nav: |
+  agents/workflow.md
+  agents/code-index.md
+  agents/conventions.md
 
 extra:
   homepage: https://github.com/radar-lab/opencda-marl
@@ -186,5 +171,6 @@ extra_css:
 
 extra_javascript:
   - javascripts/mathjax.js
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  # polyfill.io was dropped in 2024: the domain changed hands and began serving
+  # malicious payloads. MathJax 3 needs no ES6 polyfill in supported browsers.
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

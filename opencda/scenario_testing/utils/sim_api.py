@@ -28,6 +28,46 @@ from opencda.scenario_testing.utils.customized_map_api import \
 
 from opencda import CARLA_VERSION
 
+# <OpenCDA-MARL>
+from loguru import logger
+
+
+def is_client_timeout(error):
+    """Whether ``error`` is the CARLA client's RPC time-out ("time-out of
+    20000ms while waiting for the simulator, ...")."""
+    message = str(error).lower()
+    return isinstance(error, RuntimeError) and (
+        'time-out' in message or 'timed out' in message)
+
+
+def build_world_with_retry(build, client, timeout):
+    """Run ``build()`` (a world load or an OpenDRIVE world generation) and
+    retry it once if the client times out waiting for the simulator.
+
+    On a loaded machine a world build can outlast ``world.timeout``. The
+    server keeps working on the timed-out request, so the retry waits up to
+    twice the timeout; the client's timeout is restored afterwards. A second
+    time-out, or any other error, propagates.
+    """
+    try:
+        return build()
+    except RuntimeError as error:
+        if not is_client_timeout(error):
+            raise
+        retry_timeout = 2.0 * float(timeout)
+        logger.warning(
+            f"CARLA world build timed out after {float(timeout):g} s "
+            f"(world.timeout): {error}. Retrying once with a "
+            f"{retry_timeout:g} s timeout.")
+    client.set_timeout(retry_timeout)
+    try:
+        world = build()
+    finally:
+        client.set_timeout(timeout)
+    logger.info("CARLA world build succeeded on the retry.")
+    return world
+# </OpenCDA-MARL>
+
 
 def car_blueprint_filter(blueprint_library, carla_version=CARLA_VERSION):
     """
@@ -192,11 +232,26 @@ class ScenarioManager:
         self.client.set_timeout(timeout)
 
         if xodr_path:
-            self.world = load_customized_world(xodr_path, self.client)
+            # <OpenCDA-MARL>
+            # Skip unused navmesh builds on every vehicle-only world reload,
+            # and retry the build once when the client times out.
+            self.world = build_world_with_retry(
+                lambda: load_customized_world(
+                    xodr_path, self.client,
+                    enable_pedestrian_navigation=simulation_config.get(
+                        'pedestrian_navigation', False)),
+                self.client, timeout)
+            # </OpenCDA-MARL>
         elif town:
             try:
-                self.world = self.client.load_world(town)
-            except RuntimeError:
+                # <OpenCDA-MARL>
+                self.world = build_world_with_retry(
+                    lambda: self.client.load_world(town), self.client, timeout)
+            except RuntimeError as error:
+                # A time-out is not a missing map: report it as what it is.
+                if is_client_timeout(error):
+                    raise
+                # </OpenCDA-MARL>
                 print(
                     f"{bcolors.FAIL} %s is not found in your CARLA repo! "
                     f"Please download all town maps to your CARLA "
@@ -279,7 +334,7 @@ class ScenarioManager:
         Parameters
         ----------
         application : list
-            The application purpose, a list, eg. ['single'], ['platoon'].
+            The application purpose, a list, eg. ['single'], ['platooning'].
 
         map_helper : function
             A function to help spawn vehicle on a specific position in

@@ -1,283 +1,134 @@
-# OpenCDA-MARL Architecture
+# Architecture
 
-OpenCDA-MARL extends the original OpenCDA framework to support Multi-Agent Reinforcement Learning (MARL) for cooperative autonomous driving. This document describes the current architecture implementation.
+One sealed lifecycle, many replaceable joints. The framework fixes *how a
+run executes* — world, traffic, agents, observe, act, reward, learn,
+telemetry — and turns every part an experiment might vary into a plugin
+selected by configuration. The intended workflow: a research project varies one
+component behind one joint, and the validated component integrates back
+without the loop ever changing shape. This page is the map of those joints; [Replace a
+Component](replace_component.md) is the practice — the mechanism, then
+one worked page per kind, of which [Add an
+Algorithm](custom_algorithms.md) covers the largest.
 
-!!! success "Release Status"
-    OpenCDA-MARL v1.0.0 is the first stable release. The system supports intersection scenarios with multiple agent types and five RL algorithms (TD3, DQN, Q-Learning, MAPPO, SAC). Both CARLA and SUMO simulators are supported.
+## The four zones
 
-## Directory Structure
+| zone | contents | import rule |
+|---|---|---|
+| `opencda_marl/_kernel/` | the complete lifecycle: scenario manager, traffic, agent manager, envs, policy manager, checkpointing | never imports `builtin` — the kernel knows contracts, not implementations |
+| `opencda_marl/api/` | every contract and every `register_*` door | the only surface plugins and external code touch |
+| `opencda_marl/plugins/` | the one plugin system: discovery, loading, freeze, rollback | — |
+| `opencda_marl/builtin/` | the framework's own plugin set (learners, planners, agents, extractors, rewards, intent providers) | registers through the same doors an external package would |
 
-<details>
-<summary>Directory Structure</summary>
-```sh
-OpenCDA-MARL/
-├── docs/                       # Documentation
-├── opencda/                    # Original OpenCDA core (preserved)
-│   ├── assets/                 # Maps and resources
-│   ├── co_simulation/          # SUMO integration
-│   ├── core/                   # Core modules
-│   │   ├── actuation/          # Control algorithms
-│   │   ├── application/        # Cooperative driving apps
-│   │   ├── common/             # Base classes and V2X
-│   │   ├── map/                # HD Map management
-│   │   ├── plan/               # Planning algorithms
-│   │   └── sensing/            # Perception and localization
-│   ├── customize/              # User customizations
-│   └── scenario_testing/       # Scenario scripts and configs
-│
-├── opencda_marl/               # MARL extensions
-│   ├── coordinator.py          # Main MARL orchestrator
-│   ├── core/                   # Core MARL components
-│   │   ├── agent_manager.py    # Vehicle spawning & adapter management
-│   │   ├── events.py           # StepEvent dataclass
-│   │   ├── world_reset_manager.py  # CARLA memory management
-│   │   ├── adapter/            # Vehicle control abstraction
-│   │   │   ├── vehicle_adapter.py   # MARL vehicle wrapper
-│   │   │   ├── vehicle_defaults.py  # Default configs
-│   │   │   └── exception.py         # Custom exceptions
-│   │   ├── agents/             # Agent implementations
-│   │   │   ├── agent_factory.py     # Agent factory pattern
-│   │   │   ├── basic_agent.py       # Base autonomous agent
-│   │   │   ├── marl_agent.py        # RL-controlled agent
-│   │   │   ├── marl_behavior_agent.py # Behavior agent
-│   │   │   ├── vanilla_agent.py     # Safety agent
-│   │   │   └── rule_based_agent.py  # Rule-based agent
-│   │   ├── marl/               # MARL algorithms & infrastructure
-│   │   │   ├── marl_manager.py      # Algorithm orchestrator
-│   │   │   ├── extractor.py         # Observation feature extraction
-│   │   │   ├── metrics.py           # Training metrics tracking
-│   │   │   ├── checkpoint.py        # Model checkpoint management
-│   │   │   └── algorithms/          # RL implementations
-│   │   │       ├── base_algorithm.py    # Abstract base class
-│   │   │       ├── q_learning.py        # Q-Learning
-│   │   │       ├── dqn.py              # Deep Q-Network
-│   │   │       ├── td3.py              # Twin Delayed DDPG
-│   │   │       ├── mappo.py            # Multi-Agent PPO
-│   │   │       ├── sac.py              # Soft Actor-Critic
-│   │   │       ├── rollout_buffer.py   # MAPPO rollout buffer
-│   │   │       └── smart_replay_buffer.py # High-perf replay buffer
-│   │   ├── plan/               # Planning components
-│   │   ├── safety/             # Collision avoidance
-│   │   └── traffic/            # Traffic management system
-│   │       ├── traffic_manager.py   # Traffic orchestrator
-│   │       ├── events.py           # SpawnEvent definition
-│   │       ├── flows.py            # Traffic flow patterns
-│   │       ├── planner.py          # Route planning
-│   │       ├── serializer.py       # Event recording/replay (JSON/HDF5)
-│   │       ├── sumo_adapter.py     # SUMO interface
-│   │       └── sumo_spawner.py     # SUMO vehicle spawning
-│   ├── envs/                   # MARL environments
-│   │   ├── marl_env.py         # CARLA MARL environment (main RL loop)
-│   │   ├── sumo_marl_env.py    # SUMO-only environment
-│   │   ├── carla_monitor.py    # CARLA telemetry
-│   │   ├── carla_spectator.py  # Camera control
-│   │   ├── evaluation.py       # Episode evaluation
-│   │   ├── evaluation_plots.py # Visualization plots
-│   │   └── cross_agent_evaluator.py  # Multi-agent comparison
-│   ├── gui/                    # PySide6 Qt-based GUI
-│   │   ├── dashboard.py        # Main dashboard
-│   │   ├── observation_viewer.py # Agent observations
-│   │   ├── step_controller.py  # Simulation control
-│   │   └── widgets/            # GUI panels
-│   │       ├── agent_observation_panel.py
-│   │       ├── environment_panel.py
-│   │       ├── metrics_display.py
-│   │       └── panels/
-│   │           ├── reward_panel.py
-│   │           ├── system_panel.py
-│   │           ├── traffic_panel.py
-│   │           └── weather_panel.py
-│   ├── scenarios/              # MARL scenario management
-│   │   ├── scenario_builder.py # Factory for scenarios
-│   │   ├── scenario_manager.py # Main scenario orchestrator
-│   │   └── templates/          # Scenario templates
-│   │       ├── base_template.py
-│   │       └── intersection.py
-│   ├── assets/                 # MARL-specific assets
-│   │   ├── maps/              # Custom intersection maps
-│   │   │   ├── intersection.xodr
-│   │   │   └── intersection.fbx
-│   │   └── intersection_sumo/  # SUMO scenario files
-│   └── utils/                  # Utilities
-│
-├── configs/                    # Unified configuration
-│   ├── opencda/                # Original OpenCDA configs
-│   └── marl/                   # MARL-specific configs
-│       ├── default.yaml        # Base configuration
-│       ├── td3_simple_v4.yaml  # Latest TD3 config
-│       ├── dqn.yaml            # DQN config
-│       ├── mappo.yaml          # MAPPO config
-│       ├── sac.yaml            # SAC config
-│       ├── vanilla.yaml        # Vanilla baseline
-│       ├── behavior.yaml       # Behavior baseline
-│       ├── rule_based.yaml     # Rule-based baseline
-│       ├── sumo.yaml           # SUMO-only mode
-│       └── ...                 # Additional TD3 variants
-│
-├── checkpoints/                # Saved model weights
-└── scripts/                    # Installation and setup scripts
-```
-</details>
+The boundary is enforced, not conventional: `test/basic/test_architecture.py`
+parses the imports of every kernel module and fails on a violation.
 
-## Architecture Overview
-
-OpenCDA-MARL follows a 3-layer architecture that preserves OpenCDA's core functionality while adding MARL capabilities through adapter interfaces.
-
-![OpenCDA-MARL Architecture](../images/OpenCDA_MARL_architecture.png)
+## The run loop and its joints
 
 ```mermaid
-graph TD
-    subgraph "Layer 3: Algorithms"
-        TD3[TD3] & DQN[DQN] & QL[Q-Learning] & MAPPO[MAPPO] & SAC[SAC]
-        RB[Rule-based] & BH[Behavior] & VN[Vanilla]
-    end
+flowchart TB
+    SB[scenario config] --> SM[scenario manager]
+    SM --> TM[traffic manager]
+    TM --> AM[agent manager]
+    AM --> OBS[observe]
+    OBS --> ACT[act]
+    ACT --> RWD[reward]
+    RWD --> LRN[learn]
+    LRN --> TEL["telemetry / monitor"]
+    TEL --> AM
 
-    subgraph "Layer 2: MARL Adapter"
-        CO[MARLCoordinator] --> ENV[MARLEnv]
-        CO --> SM[ScenarioManager]
-        CO --> GUI[Dashboard GUI]
-        ENV --> MM[MARLManager]
-        MM --> TD3 & DQN & QL & MAPPO & SAC
-        SM --> AM[AgentManager]
-        AM --> VA[VehicleAdapter]
-        VA --> RB & BH & VN
-    end
-
-    subgraph "Layer 1: OpenCDA Core"
-        CARLA[CARLA Simulation]
-        VM[VehicleManager]
-        LP[LocalPlanner]
-    end
-
-    VA --> VM --> LP
-    SM --> CARLA
+    P1([planner]) -.-> TM
+    P2([population mix]) -.-> TM
+    P3([agent type]) -.-> AM
+    P4([intent provider]) -.-> AM
+    P5([observation extractor]) -.-> OBS
+    P6([algorithm]) -.-> ACT
+    P7(["reward calculator<br/>reward / objective /<br/>preference profiles"]) -.-> RWD
+    P8([traffic view backend]) -.-> TEL
 ```
 
-### Layer 1: OpenCDA Core
+Solid arrows are the sealed loop; dashed nodes are the joints. The loop is
+identical on both backends — CARLA (`marl/`, `pcma/`, `momarl/` families)
+and SUMO (`sumo-marl/`) — so a component validated on one transfers to the
+other unchanged. The one exception is the `agent` kind: an agent factory
+drives a CARLA vehicle, and on SUMO a population key is only a label
+(vehicles outside the learner's population drive under SUMO's own
+car-following model).
 
-Fully preserved OpenCDA components including CARLA integration, physics simulation, sensor systems (RGB, LiDAR, GPS), vehicle management, V2X communication, and scenario management. This layer remains unchanged from the original OpenCDA framework.
+## Replaceable joints
 
-### Layer 2: MARL Adapter Interface
+Every joint is a *kind* in one unified registry. Registration happens at
+import time through `opencda_marl.api`; `pixi run python -m
+opencda_marl.plugins` lists what is registered and from where.
 
-The bridge layer between OpenCDA and MARL algorithms:
+| kind | contract | register through | selected by | built-ins |
+|---|---|---|---|---|
+| `algorithm` | `Policy` protocol (+`IntentPolicy` for path heads), `PolicyCapabilities` — `opencda_marl.api.policy` | `register_algorithm` | `MARL.algorithm` | `masac`, `pcmasac`, `mappo`, `pcmappo`, `matd3`, `pcmatd3`, `dqn`, `q_learning` |
+| `planner` | class with constructor `(world, config)` | `register_component("planner", key)` | `scenario.traffic.planner.type` | `marl` |
+| `agent` | factory `(vehicle, carla_map, config)`; resolved on CARLA only | `register_component("agent", key)` | `agents.agent_type` (globally) or `agents.population.mix` (per vehicle) | `marl`, `rule_based`, `vanilla`, `behavior`; the no-learner baselines are exactly `behavior`, `vanilla` and `rule_based` (`BASELINE_AGENT_TYPES` is closed) |
+| `reward_calculator` | produces `RewardOutput` per agent (`opencda_marl.api.contracts`) | `register_component("reward_calculator", key)` | `MARL.components.reward_calculator` | `default` |
+| `observation_extractor` | maps raw observations to the declared feature vector | `register_component("observation_extractor", key)` | `MARL.components.observation_extractor` | `default` |
+| `intent_provider` | `IntentProvider`: spawn context → `RouteIntentDecision` (`opencda_marl.api.intent`) | `register_component("intent_provider", key)` | `MARL.action_space.path.provider: <any registered key>`; without it, `MARL.action_space.path.selector` names a built-in (`keep_current`→`tao_fixed`, `random_legal`→`naive_random`, `rule_based`→`rule_based_path`, `learned`→the policy bridge) | `tao_fixed`, `naive_random`, `rule_based_path` |
+| `reward_profile` | a named parameter table | `register_reward_profile` | `MARL.reward_profile` | `simple_progress_v1`, `dense_intersection_v1`, `cooperative_intersection_v1`, `competitive_intersection_v1/_v2` |
+| `objective_profile` | the objective vector definition | `register_objective_profile` | `MARL.objective_mode` | `cooperative_pref_v1`, `competitive_ordering_v1` |
+| `preference_profile` | a named preference table (by entry direction) | `register_preference_profile` | `MARL.preference.profile` | `balanced`, `asymmetric_split`, `reversed_asymmetric_split`, `mild_asymmetric_split` |
+| `context_encoder` | module with `forward(sequences)` / `forward_padded(sequences, lengths)` over the ego-first, nearest-first neighbour sequence; constructor `(input_size, hidden_size, num_layers)` | `register_component("context_encoder", key)` | `MARL.<algo>.context_encoder` | `lstm` |
+| *your own axis* | whatever your experiment needs | `register_component("your_kind", key)` — unknown kinds are accepted and listed | your config key | — |
 
-- **MARLCoordinator**: Main orchestrator — manages simulation lifecycle, episode/step execution, GUI mode, and callback system
-- **MARLEnv**: Custom RL environment with direct CARLA integration (observation → action → reward → learn cycle)
-- **MARLAgentManager**: Spawns vehicles, manages adapters, handles lifecycle events (success/collision)
-- **MARLVehicleAdapter**: Bridges OpenCDA VehicleManager with MARL agent control
-- **GUI Dashboard**: PySide6 Qt-based dashboard with real-time visualization and step control
-- **Evaluation System**: Episode metrics, cross-agent comparison, evaluation plots
+How a plugin package reaches the registry — an `opencda_marl.plugins` entry
+point, `MARL.plugins` in config, `$OPENCDA_MARL_PLUGINS`, or a module
+dropped into `builtin/algorithms/contrib/` — is covered in
+[Add an Algorithm](custom_algorithms.md#making-it-discoverable).
 
-### Layer 3: Algorithm Implementation
+## Ports
 
-=== "RL Algorithms"
+Not everything replaceable is a registry kind; these are seams by contract
+rather than by key:
 
-    | Algorithm | Type | Description |
-    |-----------|------|-------------|
-    | **TD3** | Continuous | Twin Delayed DDPG with LSTM encoder for multi-agent context |
-    | **DQN** | Discrete | Deep Q-Network with epsilon-greedy exploration |
-    | **Q-Learning** | Discrete | Tabular Q-Learning with configurable state bins |
-    | **MAPPO** | On-Policy | Multi-Agent PPO with GAE and rollout buffer |
-    | **SAC** | Continuous | Soft Actor-Critic with entropy regularization |
+| port | contract | where |
+|---|---|---|
+| drive the scenarios from your own RL loop | PettingZoo-style `ParallelEnv` | `opencda_marl/envs/parallel_env.py` |
+| a new monitor chart | vanilla JS against the `/api/runs/...` endpoints, no build step | `opencda_marl/telemetry/static/` |
+| feed the live traffic view from a new backend | `collect_traffic_view()` / `collect_traffic_geometry()` on the env | `opencda_marl/telemetry/traffic_view.py` documents the file shapes, including the `y_up` frame flag |
+| a new scenario or profile | a YAML stating only what changes | `opencda_marl/_bundled/configs/<family>/<scenario>/`, or the same path under your own `--marl-config-root` |
+| a new deterministic traffic recording | record mode writes one as run output; adopting it as a benchmark is a copy into the package | `artifacts/recordings/` → `opencda_marl/_bundled/recordings/` |
 
-=== "Baseline Agents"
+## Adjustable seams
 
-    | Agent | Description |
-    |-------|-------------|
-    | **Rule-based** | 3-stage intersection navigation (junction management → car following → cruising) |
-    | **Behavior** | Simplified OpenCDA behavior cloning with route following |
-    | **Vanilla** | Enhanced safety with multi-vehicle TTC tracking |
+The joints above swap implementations; these config-level seams change what
+the *fixed* loop does — each one is a configuration axis:
 
-=== "Training Infrastructure"
+| seam | key | meaning |
+|---|---|---|
+| mixed autonomy | `agents.population: {mix: {marl: 0.5, rule_based: 0.5}, seed: N}` | shares exact over each window of `resolution` vehicles, reproducible per seed (a shorter prefix only approximates them; live flows draw flow by flow). The learner commands (speed and path actions, at spawn and at the approach decision zone) and learns from its own population, `agents.agent_type`, only; background vehicles keep their demand routes and stay in the traffic context. The mix must name `agents.agent_type`, or the learner gets no vehicle. On CARLA the mix is checked at construction: a mix without the learning population is rejected, a zero learner share warns, and every positive-share name must be a registered agent type (matched exactly, case-sensitive). On SUMO every other name is background traffic SUMO drives itself |
+| what one path action means | `MARL.action_space.path.provider: <registered intent_provider>` | the built-in semantic action (left / straight / right / keep) is the example; a provider declares its own alternatives, mask and head width through `opencda_marl.api.path_action` |
+| when the path decision happens | `MARL.action_space.path.decision_zone: {trigger: spawn \| approach, distance_m}` | decide at spawn, or on approaching the junction |
+| committed exit lanes in the observation | `MARL.<algo>.features.committed_exit_lanes: <width>` | per exit lane, how many other vehicles at the same junction have already committed to it, in `<width>` slots; off by default, and the state dimension changes with it |
+| per-vehicle objective preferences | `agents.preference: {mode, sampler, dim, alpha, seed, regime}` | the spawn-time sampler; `regime: aligned \| conflicting` decides whether preference-heterogeneous vehicles meet |
+| traffic determinism | `scenario.traffic.mode: replay \| live \| record` | the bundled recordings are evaluation ground truth |
+| per-vehicle driver behaviour | `metadata.driver` on a spawn event | reaches the agent factory as `config["spawn_metadata"]`, and on SUMO is applied to background vehicles (`speed_factor`, `tau`, `min_gap`, `imperfection`, `accel`, `decel`) |
+| the SUMO frame convention | `runtime.coordinate_landmarks` | junction landmarks in CARLA's frame decide `y_flip`; a `<net>_landmarks.json` (or `<net>_junction_graph.json`) next to the network is found without configuration, keyed by junction id either flat, `{"12": [x, y]}`, or nested, `{"junctions": {"12": {"centre": [x, y]}}}`. A map with none keeps the default, no y flip, so a CARLA town export needs landmarks |
+| the map, on both backends | CARLA: `scenario.map.town` or `scenario.map.xodr_path`; SUMO: `runtime.sumo_cfg` | an `.xodr` builds the CARLA world from the road network alone. SUMO does not read `scenario.map`: it loads the network named by the `<net-file>` of the `.sumocfg` at `runtime.sumo_cfg`, so a `.sumocfg` naming the derived `.net.xml` pairs the two, and SUMO reads that network in CARLA's frame only with the landmarks above. No `.sumocfg` names the derived town networks in `opencda_marl/assets/maps/`, and no landmarks ship for any town ([Run Experiments](../run-experiments.md#maps-on-both-backends)) |
 
-    - **MARLManager**: Algorithm orchestrator — selects and manages the active RL algorithm
-    - **ObservationExtractor**: Converts CARLA vehicle data into normalized RL features
-    - **CheckpointManager**: Saves latest, best, and episode-specific model weights
-    - **TrainingMetrics**: Per-episode statistics with CSV export
-    - **SmartReplayBuffer**: Pre-allocated numpy arrays with recency bias sampling
-    - **TensorBoard**: Loss, Q-values, gradients, rewards, convergence metrics
-    - **Convergence Detection**: Coefficient of variation-based (CV < 15% over 10 episodes)
+> Historical note: the path-intent axis is identified as `route_intent` in
+> code, metadata and traces — the name predates the pluggable path action.
+> It still covers what the axis does (choose the way out of the junction,
+> by whatever alternatives its provider offers); the preference sampler, which conditions
+> objectives rather than routes, moved to `agents.preference`
+> (`agents.route_intent.preference` still works).
 
-!!! note "Key Design Decision"
-    The MARL agent controls **speed only** — the local planner handles steering and waypoint following. This separation simplifies the RL action space while leveraging OpenCDA's proven path planning.
+## Rules the joints live under
 
-## Configuration System
-
-The configuration system uses OmegaConf for YAML merging:
-
-```python
-# Load MARL configurations
-if opt.marl:
-    default_yaml = "configs/marl/default.yaml"
-    config_yaml = f"configs/marl/{opt.test_scenario}.yaml"
-
-    # OmegaConf merge: base defaults + algorithm-specific overrides
-    config = OmegaConf.merge(
-        OmegaConf.load(default_yaml),
-        OmegaConf.load(config_yaml)
-    )
-```
-
-Available configuration files cover all algorithms (`td3_simple_v4.yaml`, `dqn.yaml`, `mappo.yaml`, `sac.yaml`), baseline agents (`vanilla.yaml`, `behavior.yaml`, `rule_based.yaml`), and alternative modes (`sumo.yaml`).
-
-## Execution Flow
-
-```bash
-# MARL training with TD3
-python opencda.py -t td3_simple_v4 --marl
-
-# MARL with GUI visualization
-python opencda.py -t td3_simple_v4 --marl --gui
-
-# Quick test with pixi
-pixi run marl-quick-test
-pixi run marl-quick-test-gui
-```
-
-1. **Configuration Loading**: Merge `default.yaml` + algorithm-specific YAML via OmegaConf
-2. **MARLCoordinator**: Create main orchestrator with merged config
-3. **Component Initialization**: Create CavWorld, ScenarioManager, MARLEnv
-4. **Algorithm Setup**: MARLEnv creates MARLManager, CheckpointManager, TrainingMetrics
-5. **Training Loop**: Run episodes × max_steps per episode
-6. **Each Step**: Observe → Select Action → Execute → Calculate Reward → Update Algorithm → Log
-
-```mermaid
-sequenceDiagram
-    participant C as Coordinator
-    participant E as MARLEnv
-    participant S as ScenarioManager
-    participant M as MARLManager
-    participant A as Algorithm
-
-    C->>E: step()
-    E->>S: get observations
-    E->>M: select_action(obs)
-    M->>A: select_action(obs)
-    A-->>M: action (target speed)
-    E->>S: step(target_speeds)
-    S-->>E: events + new observations
-    E->>E: calculate_rewards()
-    E->>A: store_transition()
-    E->>A: update()
-    E-->>C: step results
-```
-
-## Simulator Support
-
-=== "CARLA Mode (Default)"
-
-    Full autonomous driving simulation with physics, sensors, and 3D visualization. Used for realistic multi-agent training and evaluation.
-
-    ```yaml
-    meta:
-      simulator: "carla"  # Default
-    ```
-
-=== "SUMO Mode"
-
-    Lightweight traffic-only simulation without CARLA. Useful for large-scale traffic experiments and faster iteration.
-
-    ```yaml
-    meta:
-      simulator: "sumo"
-    ```
+- **Load once, then freeze.** Plugins register at import time during
+  startup; afterwards the registry is frozen — no hot reload, so what ran
+  is what was listed.
+- **No silent shadowing.** Overriding an existing key — built-ins included —
+  requires `override=True`; a typo cannot replace a component quietly.
+- **Version rollback.** A plugin whose declared API version mismatches is
+  rolled back as a unit, across every kind it registered.
+- **Config composes.** Three layers per scenario reference
+  (`default.yaml` → `base.yaml` → profile), `include:` for reuse, external
+  roots via `--marl-config-root`; a profile states only what it changes.
+- **Contracts are pinned by tests**, not by convention:
+  `test/basic/test_architecture.py` (zones), `test/route_intent/` (registry,
+  policy contract, components, intent), `test/basic/test_config_lint.py`
+  (every shipped profile resolves).

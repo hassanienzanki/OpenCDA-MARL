@@ -1,0 +1,61 @@
+description: |-
+  Contrib learner example: the random target-speed policy from
+  opencda_marl.builtin.algorithms.contrib.random_speed driving the SUMO
+  intersection. The module is auto-discovered from the contrib/ folder, so
+  this profile needs no plugin declaration:
+    pixi run python opencda.py -t sumo-marl/intersection/random_speed --marl
+
+world:
+  seed: 3
+  sumo_gui: false
+
+scenario:
+  simulation:
+    max_steps: 400
+    max_episodes: 2
+  traffic:
+    mode: "replay"
+    replay_file: "recordings/lite_2min_SUMO.json"
+    base_speed: 45.0
+    active_junctions: [4]
+
+outputs:
+  evaluation:
+    mode: "disabled"
+  tensorboard:
+    enabled: false
+  metrics_archive:
+    enabled: true
+    export_interval: 1
+    dir: "metrics_history/plugin_random_speed"
+
+MARL:
+  algorithm: "random_speed"
+  reward_profile: "competitive_intersection_v2"
+  objective_mode: "competitive_ordering_v1"
+  state_dim: 11
+  action_dim: 1
+  action_space:
+    mode: speed_only
+
+  # The MARL.<algorithm> block is handed to the factory as its config.
+  random_speed:
+    features:
+      rel_x: 1
+      rel_y: 1
+      position_x: 1
+      position_y: 1
+      lane_position: 1
+      heading_angle: 1
+      dist_to_intersection: 1
+      dist_to_front_vehicle: 1
+      waypoint_buffer: 1
+    min_action: 5.0
+    max_action: 45.0
+    seed: 7
+
+  training:
+    training_mode: true
+    save_checkpoints: true
+    save_freq: 1
+    checkpoint_dir: "artifacts/checkpoints/plugin_random_speed"

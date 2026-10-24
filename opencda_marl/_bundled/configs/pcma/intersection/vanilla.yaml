@@ -1,0 +1,40 @@
+description: |-
+  Two-minute CARLA vanilla baseline for the PCMA intersection scenario.
+  This is the behavior-only profile used to verify map, traffic, and
+  controller fundamentals before enabling MARL control.
+
+world:
+  seed: 3
+
+agents:
+  agent_type: "vanilla"
+
+  vanilla:
+    debug: false
+    max_speed: 45
+    emergency_param: 0.4
+    ignore_traffic_light: true
+    collision_time_ahead: 1.5
+
+    local_planner:
+      trajectory_update_freq: 9
+      debug: false
+      debug_trajectory: true
+      look_ahead_base_distance: 5.0    # meters - minimum look-ahead at zero speed
+      look_ahead_time: 0.5             # seconds - look_ahead += speed_m_s * time
+      look_ahead_max_distance: 25.0    # meters - cap to prevent overshooting curves
+
+scenario:
+  simulation:
+    max_steps: 2400
+    max_episodes: 1
+
+outputs:
+  evaluation:
+    mode: "disabled"
+  tensorboard:
+    enabled: false
+
+runtime:
+  reset:
+    enabled: false
